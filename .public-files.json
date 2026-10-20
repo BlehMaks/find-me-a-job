@@ -4,8 +4,10 @@
   ".public-files.json",
   "README.md",
   "fmj/__init__.py",
+  "fmj/feedback.py",
   "fmj/workspace.py",
   "scripts/check_public_tree.py",
+  "tests/test_feedback.py",
   "tests/test_public_tree.py",
   "tests/test_workspace.py"
 ]
