@@ -13,6 +13,8 @@ Use public openings and LinkedIn/authorized mailbox alerts as initial discovery 
 
 Read full duties for plausible matches. A senior/lead title can be hands-on; a familiar title can hide unsuitable duties. Resolve search-card vs posting location, remote-country eligibility, mandatory language/qualifications and current opening status. Reject obvious hard-limit violations early; do not spend a full tailoring cycle first. Retain direct evidence, honest transfer, gap and unknown classifications, not made-up ATS percentages.
 
+Read alternative qualifications as alternatives: “degree or equivalent experience” does not require both. A graduate label alone is not a recent-graduation restriction; inspect the actual eligibility window. Record explicit restrictions and their source rather than inferring new hard filters from a category name.
+
 ## Identity and prioritization
 
 Canonical employer+requisition/call identity plus URL aliases prevents multi-city/cross-board duplicates. A second distinct requisition at one employer can be a separate opportunity. Ambiguous identity needs reconciliation before sending. Do not use row counts or employer name alone as proof of unique applications.

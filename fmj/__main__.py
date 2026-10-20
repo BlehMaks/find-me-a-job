@@ -44,7 +44,8 @@ def doctor(root, smoke=False):
             'tools':tools,'pypdf':pdf_version,'private_permissions':config['permission_status'],
             'capabilities':caps,'ready_for_intake':True,
             'document_tools_available':bool(tools['xelatex'] and tools['pdftoppm'] and pdf_version),
-            'ready_for_outbound':all(caps.get(k,{}).get('status')=='verified' for k in ('browser','mailbox')),
+            'outbound_capabilities_available':all(caps.get(k,{}).get('status')=='verified' for k in ('browser','mailbox')),
+            'ready_for_outbound':False,'per_operation_preflight_required':True,
             'next_action':'Use the chosen agent adapter to verify actual browser/account/upload capabilities; installation alone is not that verification.'}
     if smoke:
         from . import documents
@@ -191,6 +192,10 @@ def main(argv=None):
         args=parser().parse_args(argv)
         result=execute(args)
         print(json.dumps(result,ensure_ascii=False,indent=2,default=str))
+        if args.command=='run':
+            code=result['agent_exit_code']
+            return min(255,128-code) if code<0 else min(255,code)
+        if args.command=='doctor' and args.smoke and result['document_smoke']['status']!='passed':return 2
         if args.command=='documents':
             if args.action=='finalize' and not result['ready']:return 2
             if args.action=='check' and result['mechanical_status']!='passed':return 2

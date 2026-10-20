@@ -4,6 +4,7 @@ import io
 import json
 import tempfile
 import unittest
+from unittest.mock import patch
 from fmj.__main__ import main
 
 class CLITests(unittest.TestCase):
@@ -34,6 +35,29 @@ class CLITests(unittest.TestCase):
         from fmj.__main__ import parser
         with contextlib.redirect_stderr(io.StringIO()):
             with self.assertRaises(SystemExit):parser().parse_args(['campaign','begin','--workspace','x','--operation','x','--input','x','--controlled'])
+
+    def test_agent_failure_propagates_to_command_exit(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=str(Path(temp)/'private')
+            self.assertEqual(0,self.call(['init','--workspace',root,'--agent','codex'])[0])
+            with patch('fmj.__main__.shutil.which',return_value='synthetic-agent'), patch('fmj.__main__.subprocess.call',return_value=17):
+                self.assertEqual(17,self.call(['run','--workspace',root])[0])
+
+    def test_doctor_capabilities_are_not_outbound_authority(self):
+        from fmj.__main__ import doctor
+        with tempfile.TemporaryDirectory() as temp:
+            root=str(Path(temp)/'private')
+            self.assertEqual(0,self.call(['init','--workspace',root,'--agent','codex'])[0])
+            caps={name:{'status':'verified'} for name in ('browser','mailbox','upload')}
+            with patch('fmj.__main__._capabilities',return_value=caps):
+                report=doctor(root)
+            self.assertTrue(report['outbound_capabilities_available'])
+            self.assertFalse(report['ready_for_outbound'])
+            self.assertTrue(report['per_operation_preflight_required'])
+
+    def test_failed_document_smoke_has_nonzero_exit(self):
+        with patch('fmj.__main__.doctor',return_value={'document_smoke':{'status':'failed'}}):
+            self.assertEqual(2,self.call(['doctor','--workspace','unused','--smoke'])[0])
 
     def prepared_operation(self, root, action, recipient=None, form_values=None):
         from fmj.campaign import create_operation

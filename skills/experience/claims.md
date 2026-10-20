@@ -17,4 +17,6 @@ Create variants by useful emphasis, not arbitrary synonym spinning:
 
 Use direct, confident verbs when supported. “Built” may replace vague “helped with” only if the person actually built the object; it does not imply sole ownership. Keep critical skill gaps explicit in matching notes and answer honestly when asked. Unsupported noncritical wording is still not a license to invent facts.
 
+Keep quantities and outcomes attached to the exact system they describe. Evidence of one deployed service cannot become several deployed platforms; a team-wide metric cannot silently become personal impact. Put a proficiency qualifier beside only the limited skill, preserving independently confirmed strength in adjacent skills. Distinguish using AI to help author a deliverable from building AI functionality into that deliverable; distinguish publicly available work from work for a public-sector employer.
+
 Date audit: current/closed status must be confirmed, dates keep their known precision, newest experience normally leads, and subprojects stay under the appropriate parent unless the selected template has a justified alternative. Independent projects and career transitions use the person's confirmed policy; no source candidate's dates or labels are defaults.

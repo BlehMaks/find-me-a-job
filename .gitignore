@@ -2,6 +2,9 @@
 *
 !/.githooks/
 !/.githooks/pre-commit
+!/.github/
+!/.github/workflows/
+!/.github/workflows/check.yml
 !/.gitignore
 !/.public-files.json
 !/AGENTS.md
@@ -13,6 +16,10 @@
 !/adapters/claude-code.md
 !/adapters/codex.md
 !/dependencies.lock.json
+!/docs/
+!/docs/managed.md
+!/docs/operations.md
+!/docs/pilot.md
 !/fmj/
 !/fmj/__init__.py
 !/fmj/__main__.py

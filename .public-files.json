@@ -1,5 +1,6 @@
 [
   ".githooks/pre-commit",
+  ".github/workflows/check.yml",
   ".gitignore",
   ".public-files.json",
   "AGENTS.md",
@@ -10,6 +11,9 @@
   "adapters/claude-code.md",
   "adapters/codex.md",
   "dependencies.lock.json",
+  "docs/managed.md",
+  "docs/operations.md",
+  "docs/pilot.md",
   "fmj/__init__.py",
   "fmj/__main__.py",
   "fmj/campaign.py",
