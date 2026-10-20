@@ -352,6 +352,109 @@
         "claim_cost_savings": false
       },
       "workflow": "skills/improvement/SKILL.md"
+    },
+    {
+      "id": "B21",
+      "mechanism": "metric_object_scope",
+      "input": {
+        "confirmed": {
+          "object": "one archive",
+          "turnaround_reduction": "12%"
+        },
+        "draft": "Reduced turnaround across three archives by 12%"
+      },
+      "expected": {
+        "ready": false,
+        "preserve": "one archive; 12% applies only to it"
+      },
+      "workflow": "skills/experience/claims.md"
+    },
+    {
+      "id": "B22",
+      "mechanism": "local_proficiency_qualifier",
+      "input": {
+        "skills": {
+          "interview_design": "independent",
+          "specialist_instrument": "assisted"
+        }
+      },
+      "expected": {
+        "interview_design_hedged": false,
+        "instrument_expertise_claim": false
+      },
+      "workflow": "skills/experience/claims.md"
+    },
+    {
+      "id": "B23",
+      "mechanism": "authoring_vs_product_function",
+      "input": {
+        "confirmation": "Used an AI assistant to draft a handbook",
+        "draft": "Built an AI-powered knowledge platform"
+      },
+      "expected": {
+        "draft_supported": false,
+        "safe_scope": "AI-assisted handbook preparation"
+      },
+      "workflow": "skills/experience/claims.md"
+    },
+    {
+      "id": "B24",
+      "mechanism": "parser_warning_diagnosis",
+      "input": {
+        "warning": "dictionary unavailable",
+        "canonical": "Study design",
+        "extracted": "Study design",
+        "render": "readable"
+      },
+      "expected": {
+        "pdf_defect_proven": false,
+        "diagnose_tool_warning": true
+      },
+      "workflow": "skills/documents/review.md"
+    },
+    {
+      "id": "B25",
+      "mechanism": "continuation_parent_context",
+      "input": {
+        "parent": "Example Institute",
+        "page_two_heading": "Research continued"
+      },
+      "expected": {
+        "review_needed": true,
+        "preserve_parent_context": "Example Institute"
+      },
+      "workflow": "skills/documents/review.md"
+    },
+    {
+      "id": "B26",
+      "mechanism": "equivalent_true_wording",
+      "input": {
+        "fact": "Candidate prepared the study protocol",
+        "version_a": "Prepared the study protocol",
+        "version_b": "Developed the study protocol",
+        "both_supported": true
+      },
+      "expected": {
+        "reject_only_for_different_verb": false,
+        "check_meaning_and_scope": true
+      },
+      "workflow": "skills/documents/review.md"
+    },
+    {
+      "id": "B27",
+      "mechanism": "alternative_requirements",
+      "input": {
+        "requirement": "Degree or equivalent professional experience",
+        "candidate_degree": null,
+        "equivalent_experience": "confirmed",
+        "graduate_category": true,
+        "recency_window": null
+      },
+      "expected": {
+        "degree_gap_is_automatic_rejection": false,
+        "recent_graduation_inferred": false
+      },
+      "workflow": "skills/search/SKILL.md"
     }
   ]
 }

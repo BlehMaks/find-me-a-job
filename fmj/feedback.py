@@ -84,6 +84,8 @@ def _patch_snapshot(source_root, base_ref, branch):
             return subprocess.check_output(["git", "-C", str(source), *args],stderr=subprocess.PIPE).decode()
         except (OSError, subprocess.SubprocessError, UnicodeError):
             raise FeedbackError("Cannot inspect the feedback branch") from None
+    if Path(git("rev-parse","--show-toplevel").strip()).resolve()!=source:
+        raise FeedbackError("Review feedback from the repository root, never a nested directory")
     if not re.fullmatch(r"codex/feedback/[A-Za-z0-9_-]+",branch) or base_ref.startswith('-'):
         raise FeedbackError("Use a dedicated feedback branch and explicit base revision")
     if git("branch","--show-current").strip()!=branch or git("status","--porcelain").strip():

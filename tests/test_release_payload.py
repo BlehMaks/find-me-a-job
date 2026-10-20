@@ -13,6 +13,14 @@ from scripts.check_release_payload import inspect_archive, load_manifest
 
 
 class ReleasePayloadTests(unittest.TestCase):
+    def test_source_manifest_includes_exact_reviewed_product_paths(self):
+        root=Path(__file__).resolve().parents[1]
+        approved=load_manifest(root/'.public-files.json')
+        lines=(root/'MANIFEST.in').read_text().splitlines()
+        self.assertTrue(all(line.startswith('#') or line.startswith('include ') for line in lines))
+        included={line[len('include '):] for line in lines if line.startswith('include ')}
+        self.assertEqual(included,approved)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

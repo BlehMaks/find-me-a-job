@@ -10,6 +10,7 @@
 !/.public-files.json
 !/AGENTS.md
 !/CLAUDE.md
+!/MANIFEST.in
 !/README.md
 !/THIRD_PARTY_NOTICES.md
 !/adapters/

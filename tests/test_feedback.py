@@ -73,6 +73,8 @@ class FeedbackTests(unittest.TestCase):
         (repo/'README.md').write_text('person@'+'mail.test');git('add','README.md');git('commit','-qm','intermediate')
         (repo/'README.md').write_text('Synthetic corrected result');git('add','README.md');git('commit','-qm','remove marker')
         with self.assertRaises(feedback.FeedbackError):feedback._patch_snapshot(repo,base,'codex/feedback/fix')
+        nested=repo/'empty';nested.mkdir()
+        with self.assertRaises(feedback.FeedbackError):feedback._patch_snapshot(nested,base,'codex/feedback/fix')
 
     def test_clean_patch_history_can_be_reviewed(self):
         repo=Path(self.temp.name)/'clean-patch';repo.mkdir()
