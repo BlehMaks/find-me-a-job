@@ -11,6 +11,8 @@ Reconstruct a problem from scratch using invented people, IDs, URLs, paths and t
 
 Use the user's own authorized account to create an issue or isolated tested PR. Do not merge, request merge powers, push to the default branch or alter shared instructions automatically. Report the proposal link and keep the private provenance separately. A client issue cannot disclose another client's existence or data.
 
+For a patch, use a fresh product-only checkout and dedicated `codex/feedback/` branch. Commit only reviewed product files with deliberate public metadata. Run `feedback review-patch` against the explicit upstream base **before pushing**; it checks newly introduced history as well as the final diff. Then push only that reviewed branch to the user's authorized fork and submit the draft PR. Submission checks the remote head against the unchanged reviewed revision. A secret removed in a later commit is still present in history and blocks this route.
+
 ## Optional bounded retrospective study
 
 A replay is a separate explicitly requested experiment, not background optimization. Freeze as-of task inputs, versions, referenced files and hashes. Keep future corrections and evaluator ground truth inaccessible to baseline/adaptation workers. Predeclare discovery and held-out groups to avoid near-duplicate leakage; label faithful, partial or unusable reconstructions.

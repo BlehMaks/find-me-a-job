@@ -61,4 +61,28 @@ class FeedbackTests(unittest.TestCase):
         with self.assertRaises(feedback.FeedbackError):
             feedback.submit(self.root,p['id'],pr_branch='example:codex/feedback/fix',source_root=self.temp.name,runner=lambda *a,**k:self.fail('unreviewed PR'))
 
+    def test_patch_review_scans_removed_historical_private_content(self):
+        repo=Path(self.temp.name)/'patch';repo.mkdir()
+        def git(*args):
+            return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.PIPE).decode().strip()
+        git('init','-q');git('config','user.name','Synthetic Maintainer');git('config','user.email','maintainer@example.invalid')
+        (repo/'.public-files.json').write_text('[".public-files.json", "README.md"]')
+        (repo/'README.md').write_text('Synthetic baseline')
+        git('add','.');git('commit','-qm','baseline');base=git('rev-parse','HEAD')
+        git('switch','-qc','codex/feedback/fix')
+        (repo/'README.md').write_text('person@'+'mail.test');git('add','README.md');git('commit','-qm','intermediate')
+        (repo/'README.md').write_text('Synthetic corrected result');git('add','README.md');git('commit','-qm','remove marker')
+        with self.assertRaises(feedback.FeedbackError):feedback._patch_snapshot(repo,base,'codex/feedback/fix')
+
+    def test_clean_patch_history_can_be_reviewed(self):
+        repo=Path(self.temp.name)/'clean-patch';repo.mkdir()
+        def git(*args):
+            return subprocess.check_output(['git','-C',str(repo),*args],stderr=subprocess.PIPE).decode().strip()
+        git('init','-q');git('config','user.name','Synthetic Maintainer');git('config','user.email','maintainer@example.invalid')
+        (repo/'.public-files.json').write_text('[".public-files.json", "README.md"]')
+        (repo/'README.md').write_text('Synthetic baseline');git('add','.');git('commit','-qm','baseline');base=git('rev-parse','HEAD')
+        git('switch','-qc','codex/feedback/fix');(repo/'README.md').write_text('Synthetic improvement');git('add','README.md');git('commit','-qm','improve')
+        snapshot=feedback._patch_snapshot(repo,base,'codex/feedback/fix')
+        self.assertEqual(snapshot['files'],['README.md'])
+
 if __name__ == '__main__': unittest.main()

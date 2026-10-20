@@ -90,6 +90,7 @@ def _patch_snapshot(source_root, base_ref, branch):
         raise FeedbackError("Review a clean checked-out feedback branch")
     base=git("rev-parse","--verify",base_ref+'^{commit}').strip()
     head=git("rev-parse","HEAD").strip()
+    git("merge-base","--is-ancestor",base,head)
     try:
         allowed=set(json.loads(git("show",head+":.public-files.json")))
     except (ValueError,TypeError):
@@ -97,6 +98,22 @@ def _patch_snapshot(source_root, base_ref, branch):
     files=git("diff","--name-only",base,head,"--").splitlines()
     if not files or any(path not in allowed for path in files):
         raise FeedbackError("Patch contains unapproved paths or no changes")
+    # A clean final diff can still push a removed secret in an intermediate commit.
+    # Inspect every newly published tree and commit message before a branch push.
+    for commit in git("rev-list",base+'..'+head).splitlines():
+        metadata=git("show","-s","--format=%an%x00%ae%x00%cn%x00%ce%x00%B",commit).split('\x00',4)
+        for text in (metadata[0],metadata[2],metadata[4]):_safe_text(text)
+        for address in (metadata[1],metadata[3]):
+            domain=address.rsplit('@',1)[-1].lower()
+            if domain not in {'example.com','example.org','example.net','users.noreply.github.com'} and not domain.endswith('.invalid'):
+                raise FeedbackError("Review public author and committer addresses before pushing feedback")
+        for entry in filter(None,git("ls-tree","-rz",commit).split('\x00')):
+            meta,path=entry.split('\t',1);mode,kind,oid=meta.split()
+            if path not in allowed or set(Path(path).parts)&{'private','clients','resume_system','plans','sessions','secrets','.git'} or kind!='blob' or mode not in {'100644','100755'}:
+                raise FeedbackError("Feedback history contains unapproved files or links")
+            text=git("cat-file","blob",oid)
+            if '\x00' in text:raise FeedbackError("Feedback history contains unreviewed binary content")
+            _safe_text(text)
     for path in files:
         if path not in git("ls-tree","--name-only",head,"--",path).splitlines():continue
         _safe_text(git("show",head+":"+path))
