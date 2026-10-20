@@ -15,6 +15,7 @@
   "fmj/documents.py",
   "fmj/feedback.py",
   "fmj/records.py",
+  "fmj/telegram.py",
   "fmj/workspace.py",
   "markets/at.md",
   "markets/ca.md",
@@ -82,6 +83,7 @@
   "tests/test_public_tree.py",
   "tests/test_records.py",
   "tests/test_search_policy.py",
+  "tests/test_telegram_control.py",
   "tests/test_template_selection.py",
   "tests/test_workspace.py"
 ]
