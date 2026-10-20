@@ -1,0 +1,72 @@
+{
+  "name": "Alex Example",
+  "contact": [
+    {
+      "text": "Example City"
+    },
+    {
+      "text": "alex@example.invalid",
+      "url": "mailto:alex@example.invalid"
+    },
+    {
+      "text": "portfolio.example.invalid",
+      "url": "https://portfolio.example.invalid"
+    }
+  ],
+  "summary": "Specialist translating complex work into clear, useful results.",
+  "skills": [
+    {
+      "label": "Methods",
+      "items": [
+        "Research",
+        "Collaboration"
+      ]
+    },
+    {
+      "label": "Languages",
+      "items": [
+        "English C1",
+        "French B2"
+      ],
+      "spoken_languages": true
+    }
+  ],
+  "experience": [
+    {
+      "title": "Specialist",
+      "organization": "Example Studio",
+      "start": "2021-03",
+      "end": "2025-08",
+      "bullets": [
+        {
+          "text": "Redesigned a review process and reduced median turnaround by 20%.",
+          "emphasis": [
+            "20%"
+          ]
+        },
+        "Coordinated delivery with three partner teams and documented acceptance decisions."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "title": "Master of Practice",
+      "organization": "Example Institute",
+      "start": "2018",
+      "end": "2020",
+      "bullets": [
+        "Completed an independently assessed final project.",
+        "Presented methods and limitations to an expert panel."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "title": "Selected collaboration",
+      "bullets": [
+        "Developed an accessible presentation for a community programme.",
+        "Validated the final deliverable with the intended audience."
+      ]
+    }
+  ]
+}

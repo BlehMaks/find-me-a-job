@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "language",
+    "channel",
+    "audience",
+    "samples",
+    "approved_examples"
+  ],
+  "properties": {
+    "language": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "audience": {
+      "type": "string"
+    },
+    "samples": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "declared_authorship"
+        ],
+        "properties": {
+          "reference": {
+            "type": "string"
+          },
+          "declared_authorship": {
+            "enum": [
+              "self_written",
+              "ai_assisted",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "approved_examples": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallback": {
+      "const": "neutral_professional"
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "sources": [
+    {
+      "id": "older-cv",
+      "claims": [
+        {
+          "field": "role_start",
+          "value": "2020-01"
+        },
+        {
+          "field": "ownership",
+          "value": "supported rollout"
+        }
+      ]
+    },
+    {
+      "id": "recent-cv",
+      "claims": [
+        {
+          "field": "role_start",
+          "value": "2021-03"
+        },
+        {
+          "field": "ownership",
+          "value": "led rollout"
+        }
+      ]
+    }
+  ],
+  "ground_truth": {
+    "role_start": "needs_confirmation",
+    "ownership": "needs_confirmation"
+  },
+  "interview": [
+    "Which start date is accurate?",
+    "Which parts did you personally own?"
+  ],
+  "confidentiality": "Keep all client names private; use approved generic labels."
+}

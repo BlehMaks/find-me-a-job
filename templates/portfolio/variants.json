@@ -1,0 +1,23 @@
+{
+  "family": "portfolio",
+  "variants": {
+    "selected-work": [
+      "summary",
+      "projects",
+      "experience",
+      "skills",
+      "education",
+      "publications"
+    ],
+    "practice-first": [
+      "summary",
+      "experience",
+      "projects",
+      "education",
+      "skills",
+      "publications"
+    ]
+  },
+  "preview": "fmj documents previews --family portfolio",
+  "approval": "Approve structure, paper and page budget before tailoring."
+}

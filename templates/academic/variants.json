@@ -1,0 +1,23 @@
+{
+  "family": "academic",
+  "variants": {
+    "research-first": [
+      "summary",
+      "experience",
+      "publications",
+      "projects",
+      "education",
+      "skills"
+    ],
+    "publications-first": [
+      "summary",
+      "publications",
+      "education",
+      "experience",
+      "projects",
+      "skills"
+    ]
+  },
+  "preview": "fmj documents previews --family academic",
+  "approval": "Approve structure, paper and page budget before tailoring."
+}

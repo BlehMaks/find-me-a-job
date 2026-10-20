@@ -1,0 +1,23 @@
+{
+  "family": "industry",
+  "variants": {
+    "experience-first": [
+      "summary",
+      "skills",
+      "experience",
+      "projects",
+      "education",
+      "publications"
+    ],
+    "skills-first": [
+      "summary",
+      "skills",
+      "projects",
+      "experience",
+      "education",
+      "publications"
+    ]
+  },
+  "preview": "fmj documents previews --family industry",
+  "approval": "Approve structure, paper and page budget before tailoring."
+}

@@ -1,0 +1,9 @@
+{
+  "input": "I coordinated revisions with colleagues but did not count how many.",
+  "ground_truth": {
+    "collaboration": "candidate_confirmed",
+    "numeric_impact": "unknown"
+  },
+  "acceptable_claim": "Coordinated revisions with colleagues to resolve review feedback.",
+  "forbidden_claim": "Increased productivity by 30%."
+}

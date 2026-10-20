@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "family",
+    "variant",
+    "sections"
+  ],
+  "properties": {
+    "family": {
+      "enum": [
+        "industry",
+        "academic",
+        "portfolio"
+      ]
+    },
+    "variant": {
+      "type": "string"
+    },
+    "sections": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "summary",
+          "skills",
+          "experience",
+          "projects",
+          "education",
+          "publications"
+        ]
+      }
+    },
+    "paper": {
+      "enum": [
+        "a4",
+        "letter"
+      ]
+    },
+    "max_pages": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "approved_by": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+\documentclass[10pt,@@PAPER@@]{article}
+\usepackage[margin=18mm]{geometry}
+\usepackage{fontspec}
+\setmainfont{lmroman10-regular.otf}[BoldFont=lmroman10-bold.otf,ItalicFont=lmroman10-italic.otf,BoldItalicFont=lmroman10-bolditalic.otf,RawFeature={-kern},Ligatures=NoCommon]
+@@LINKS@@
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{0pt}{8pt}{3pt}{\large\bfseries}}
+\makeatother
+\raggedright
+\begin{document}
+@@BODY@@
+\end{document}
