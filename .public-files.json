@@ -1,0 +1,8 @@
+[
+  ".gitignore",
+  ".public-files.json",
+  "README.md",
+  ".githooks/pre-commit",
+  "scripts/check_public_tree.py",
+  "tests/test_public_tree.py"
+]

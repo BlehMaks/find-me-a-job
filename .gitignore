@@ -1,6 +1,7 @@
 # Only reviewed product files may enter this checkout's Git history.
 *
 !/.gitignore
+!/.public-files.json
 !/README.md
 !/.githooks/
 !/.githooks/pre-commit

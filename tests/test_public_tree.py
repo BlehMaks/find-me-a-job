@@ -48,6 +48,34 @@ class PublicTreeTest(unittest.TestCase):
             self.assertEqual(1, result.returncode)
             self.assertNotIn("mail.test", result.stderr)
 
+    def test_history_catches_removed_marker_and_metadata(self):
+        with tempfile.TemporaryDirectory() as temp:
+            def git(*args):
+                subprocess.run(["git", "-C", temp, *args], check=True, capture_output=True)
+            git("init", "-q")
+            git("config", "user.name", "Synthetic Maintainer")
+            git("config", "user.email", "maintainer@example.invalid")
+            readme = Path(temp) / "README.md"
+            readme.write_text("candidate@" + "mail.test")
+            git("add", "README.md")
+            git("commit", "-qm", "fixture")
+            readme.write_text("candidate@example.org")
+            git("add", "README.md")
+            git("commit", "-qm", "replace fixture")
+            result = subprocess.run(["python3", str(ROOT / "scripts/check_public_tree.py"), "--history"],
+                                    cwd=temp, capture_output=True, text=True)
+            self.assertEqual(1, result.returncode)
+            self.assertNotIn("mail.test", result.stderr)
+
+    def test_manifest_cannot_authorize_private_directory(self):
+        with tempfile.TemporaryDirectory() as temp:
+            subprocess.run(["git", "init", "-q", temp], check=True)
+            (Path(temp) / ".public-files.json").write_text('["private/person.json"]')
+            subprocess.run(["git", "-C", temp, "add", ".public-files.json"], check=True)
+            result = subprocess.run(["python3", str(ROOT / "scripts/check_public_tree.py")],
+                                    cwd=temp, capture_output=True, text=True)
+            self.assertEqual(1, result.returncode)
+
 
 if __name__ == "__main__":
     unittest.main()
