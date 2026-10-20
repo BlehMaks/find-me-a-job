@@ -1,0 +1,115 @@
+{
+  "schema_version": 1,
+  "reviewed_at": "2026-10-20",
+  "policy": "No automatic license/publication decision for original product. Install external software from official sources and record actual resolved versions/capabilities.",
+  "bundled": [
+    {
+      "name": "humanizer",
+      "source": "https://github.com/blader/humanizer",
+      "revision": "8c307f367c91bd974002f10f2be2965d642c13df",
+      "license": "MIT",
+      "files": {
+        "skills/humanizer/SKILL.md": "0612f1dfb1672b0ea9b97e139bf1f06cabe98d8b27424fe8ff01e1fb4cc99cad",
+        "skills/humanizer/LICENSE": "4ac4810254ab36d45419141aeb8e69bf50652cfafe5b2dab947d06d44e5cbf96"
+      },
+      "modified": false,
+      "version": "3.1.0"
+    }
+  ],
+  "python_dependencies": [
+    {
+      "name": "pypdf",
+      "version": "6.21.1",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/py-pdf/pypdf",
+      "distribution": "separately installed Python package; no vendored binary",
+      "license_source": "https://github.com/py-pdf/pypdf/blob/main/LICENSE"
+    }
+  ],
+  "external_tools": [
+    {
+      "name": "Python",
+      "minimum": "3.11",
+      "license": "PSF-2.0 and bundled notices",
+      "source": "https://www.python.org/downloads/",
+      "bundled": false
+    },
+    {
+      "name": "Git",
+      "license": "GPL-2.0-only",
+      "source": "https://git-scm.com/downloads",
+      "bundled": false
+    },
+    {
+      "name": "GitHub CLI",
+      "license": "MIT",
+      "source": "https://cli.github.com/",
+      "bundled": false
+    },
+    {
+      "name": "TeX Live / MacTeX / BasicTeX",
+      "license": "component-specific free software licenses; inspect chosen distribution/packages/fonts",
+      "source": "https://tug.org/texlive/",
+      "bundled": false
+    },
+    {
+      "name": "Poppler utilities",
+      "license": "GPL-2.0-or-later and component notices; selected distributor remains responsible for binary notices",
+      "source": "https://poppler.freedesktop.org/",
+      "bundled": false
+    },
+    {
+      "name": "Codex",
+      "license": "official distribution-specific license and service terms; verify chosen release",
+      "source": "https://developers.openai.com/codex/cli",
+      "bundled": false,
+      "optional_choice": true
+    },
+    {
+      "name": "Claude Code",
+      "license": "provider software/service terms; not sublicensed by this product",
+      "source": "https://code.claude.com/docs/en/setup",
+      "bundled": false,
+      "optional_choice": true
+    }
+  ],
+  "optional_services": [
+    {
+      "name": "Telegram Bot API",
+      "source": "https://core.telegram.org/bots/api",
+      "purpose": "paid managed-client questions and control",
+      "bundled": false,
+      "requires": "operator setup, authenticated client binding, private bot secret, service terms and data-transfer disclosure"
+    },
+    {
+      "name": "provenance/statistical services",
+      "selected": false,
+      "bundled": false,
+      "requires": "separate rights and data-transfer review; unavailable by default; no universal detector claim"
+    },
+    {
+      "name": "Harness2",
+      "source": "https://github.com/google-research/harness2",
+      "license": "Apache-2.0 upstream; local adapters not cleared or bundled",
+      "bundled": false,
+      "default_required": false,
+      "requires": "separately pinned reviewed installation and enforced isolation before explicit experiments"
+    }
+  ],
+  "not_bundled": [
+    "local personalized resume skills",
+    "local remove-ai-marks service client",
+    "proprietary host document/PDF skills",
+    "local browser skills with unresolved rights",
+    "local harness2-subagents transport"
+  ],
+  "development_only": [
+    {
+      "name": "Spec Kit",
+      "source": "https://github.com/github/spec-kit",
+      "license": "MIT",
+      "end_user_runtime_required": false,
+      "bundled": false
+    }
+  ]
+}
