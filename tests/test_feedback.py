@@ -51,4 +51,14 @@ class FeedbackTests(unittest.TestCase):
         other=Path(self.temp.name)/'managed';create_workspace(other, mode='managed',operator='operator',source_root=Path(self.temp.name)/'source')
         with self.assertRaises(feedback.FeedbackError):feedback.consent(other, True,'example/product','owner')
 
+    def test_windows_path_rejected_before_serialization(self):
+        payload={**self.payload,'observed':'C:'+chr(92)+'Users'+chr(92)+'Synthetic'+chr(92)+'cv.pdf'}
+        with self.assertRaises(feedback.FeedbackError):feedback.prepare(self.root,payload)
+
+    def test_pr_requires_real_diff_review(self):
+        feedback.consent(self.root,True,'example/product','owner')
+        p=feedback.prepare(self.root,self.payload);feedback.review(self.root,p['id'],'reviewer',True)
+        with self.assertRaises(feedback.FeedbackError):
+            feedback.submit(self.root,p['id'],pr_branch='example:codex/feedback/fix',source_root=self.temp.name,runner=lambda *a,**k:self.fail('unreviewed PR'))
+
 if __name__ == '__main__': unittest.main()
