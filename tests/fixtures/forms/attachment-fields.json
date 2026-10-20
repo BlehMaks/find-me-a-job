@@ -1,0 +1,10 @@
+{
+  "synthetic": true,
+  "description": "Observed portal constraints for controlled tests; no remote submission.",
+  "constraints": {
+    "cv": {"required": true, "accepted_extensions": [".pdf"], "accepted_types": ["application/pdf"], "max_count": 1, "max_bytes": 5000000},
+    "letter": {"required": false, "accepted_extensions": [".pdf"], "accepted_types": ["application/pdf"], "max_count": 1, "max_bytes": 5000000},
+    "supporting": {"required": false, "accepted_extensions": [".pdf"], "accepted_types": ["application/pdf"], "max_count": 2, "max_bytes": 10000000}
+  },
+  "routing": {"cv": "cv", "letter": "letter", "reference": "supporting", "education": "supporting"}
+}

@@ -1,0 +1,357 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "description": "Inert expected-behavior cases. No execution or real customer facts. Runtime/reviewer tests must assess the expected decision, not infer that a prose case alone proves behavior.",
+  "cases": [
+    {
+      "id": "B01",
+      "mechanism": "scoped_supersession",
+      "input": {
+        "old_policy": {
+          "scope": "future documents",
+          "version": 1,
+          "independent_dates": "fixed"
+        },
+        "new_policy": {
+          "scope": "future documents",
+          "version": 2,
+          "supersedes": 1,
+          "independent_dates": "confirmed actual dates"
+        },
+        "submitted_snapshot_version": 1
+      },
+      "expected": {
+        "active_version": 2,
+        "submitted_snapshot_version": 1
+      },
+      "workflow": "AGENTS.md"
+    },
+    {
+      "id": "B02",
+      "mechanism": "source_conflict",
+      "input": {
+        "cv_old": {
+          "title": "Research assistant"
+        },
+        "cv_recent": {
+          "title": "Research lead"
+        },
+        "candidate_confirmation": null
+      },
+      "expected": {
+        "fact_status": "conflicting",
+        "send_claim": false,
+        "next_action": "ask personal ownership and actual title"
+      },
+      "workflow": "skills/experience/SKILL.md"
+    },
+    {
+      "id": "B03",
+      "mechanism": "proficiency_boundary",
+      "input": {
+        "confirmation": "Used a design tool with close colleague assistance for one draft",
+        "requested": "independent expert"
+      },
+      "expected": {
+        "expert_claim_allowed": false,
+        "assisted_use_allowed": true
+      },
+      "workflow": "skills/experience/claims.md"
+    },
+    {
+      "id": "B04",
+      "mechanism": "absent_vs_unknown",
+      "input": {
+        "confirmed_absent": [
+          "clinical licence"
+        ],
+        "unknown": [
+          "statistical package"
+        ],
+        "transfer": [
+          "qualitative study design"
+        ]
+      },
+      "expected": {
+        "licence_question_closed": true,
+        "package_question_open": true,
+        "transfer_does_not_equal_licence": true
+      },
+      "workflow": "prompts/application-answers.md"
+    },
+    {
+      "id": "B05",
+      "mechanism": "duties_location",
+      "input": {
+        "title": "Studio lead",
+        "duties": [
+          "hands-on design",
+          "no direct reports"
+        ],
+        "search_location": "remote",
+        "posting_location": "remote within country X",
+        "policy": "individual contributor; location unknown"
+      },
+      "expected": {
+        "management_reject_from_title": false,
+        "location_recheck_required": true
+      },
+      "workflow": "skills/search/SKILL.md"
+    },
+    {
+      "id": "B06",
+      "mechanism": "independent_stages",
+      "input": {
+        "document": "verified",
+        "form": "blocked_login",
+        "portal_success": false,
+        "receipt": null
+      },
+      "expected": {
+        "submitted_count": 0,
+        "document_ready": true
+      },
+      "workflow": "skills/applications/SKILL.md"
+    },
+    {
+      "id": "B07",
+      "mechanism": "canonical_deduplication",
+      "input": {
+        "listings": [
+          {
+            "employer": "Synthetic Lab",
+            "requisition": "SYN-42",
+            "city": "A"
+          },
+          {
+            "employer": "Synthetic Lab",
+            "requisition": "SYN-42",
+            "city": "B"
+          },
+          {
+            "employer": "Synthetic Lab",
+            "requisition": "SYN-43",
+            "city": "A"
+          }
+        ]
+      },
+      "expected": {
+        "unique_opportunities": 2
+      },
+      "workflow": "skills/search/SKILL.md"
+    },
+    {
+      "id": "B08",
+      "mechanism": "scoped_blocker",
+      "input": {
+        "old_blocker": {
+          "scope": "profile-A upload",
+          "cause": "unknown"
+        },
+        "new_observation": {
+          "scope": "profile-B upload",
+          "result": "success"
+        }
+      },
+      "expected": {
+        "global_upload_failure": false,
+        "profile_A_recheck_needed": true
+      },
+      "workflow": "adapters/browser.md"
+    },
+    {
+      "id": "B09",
+      "mechanism": "observed_recovery",
+      "input": {
+        "control_1": "timeout",
+        "extension_setting": "already enabled",
+        "official_control_2": "upload succeeded"
+      },
+      "expected": {
+        "change_setting": false,
+        "cause": "unknown",
+        "use_official_control_2": true
+      },
+      "workflow": "adapters/browser.md"
+    },
+    {
+      "id": "B10",
+      "mechanism": "actual_preflight",
+      "input": {
+        "bundle_file": "CV_SYN_current.pdf",
+        "portal_attached": "CV_SYN_old.pdf",
+        "typed_contact": "valid",
+        "framework_value": "empty"
+      },
+      "expected": {
+        "dispatch_allowed": false,
+        "fix": [
+          "replace stale attachment",
+          "commit and validate field value"
+        ]
+      },
+      "workflow": "skills/applications/preflight.md"
+    },
+    {
+      "id": "B11",
+      "mechanism": "outcome_evidence",
+      "input": {
+        "new_submissions": 2,
+        "recovered_old_receipts": 1,
+        "unmatched_company_receipt": 1,
+        "mailbox_complete": false
+      },
+      "expected": {
+        "new_submission_count": 2,
+        "conversion_rate_available": false
+      },
+      "workflow": "skills/applications/scheduling.md"
+    },
+    {
+      "id": "B12",
+      "mechanism": "review_materiality",
+      "input": {
+        "findings": [
+          {
+            "kind": "fact",
+            "claim": "published",
+            "evidence": "under review"
+          },
+          {
+            "kind": "optional",
+            "suggestion": "prefer another verb"
+          }
+        ]
+      },
+      "expected": {
+        "material_fix": "under review",
+        "optional_blocks_ready": false
+      },
+      "workflow": "skills/documents/review.md"
+    },
+    {
+      "id": "B13",
+      "mechanism": "extracted_spaces",
+      "input": {
+        "canonical": "Designed study protocol",
+        "extracted": "Designedstudy protocol",
+        "build": "success"
+      },
+      "expected": {
+        "parse_pass": false,
+        "ready": false
+      },
+      "workflow": "skills/documents/SKILL.md"
+    },
+    {
+      "id": "B14",
+      "mechanism": "question_scope",
+      "input": {
+        "confirmed_question": "Do you need sponsorship for this position?",
+        "confirmed_answer": "No",
+        "new_question": "Have you ever worked for a government?",
+        "confirmed_government_fact": null
+      },
+      "expected": {
+        "reuse_answer": false,
+        "ask_fact": true
+      },
+      "workflow": "prompts/application-answers.md"
+    },
+    {
+      "id": "B15",
+      "mechanism": "recipient_quote",
+      "input": {
+        "thread_to": [
+          "researcher",
+          "administrator"
+        ],
+        "reply_purpose": "answer researcher question",
+        "draft_in_quote": true,
+        "reply_all_requested": false
+      },
+      "expected": {
+        "auto_reply_all": false,
+        "new_text_outside_quote": true
+      },
+      "workflow": "prompts/communication.md"
+    },
+    {
+      "id": "B16",
+      "mechanism": "purpose_contact",
+      "input": {
+        "contact": "synthetic-person-1",
+        "permission": "referral field only",
+        "prior_message": null
+      },
+      "expected": {
+        "message_allowed": false,
+        "referral_field_allowed": true
+      },
+      "workflow": "prompts/communication.md"
+    },
+    {
+      "id": "B17",
+      "mechanism": "spoken_preparation",
+      "input": {
+        "invitation": "technical discussion",
+        "confirmed_method": "interviews",
+        "requested_tool": "unknown"
+      },
+      "expected": {
+        "accept_appointment": false,
+        "prepare_short_long_introductions": true,
+        "invent_tool_expertise": false
+      },
+      "workflow": "skills/interviews/SKILL.md"
+    },
+    {
+      "id": "B18",
+      "mechanism": "handoff_scope",
+      "input": {
+        "standing_registration_permission": true,
+        "tool_requires_action_time_confirmation": true,
+        "affected_opportunities": 3
+      },
+      "expected": {
+        "bypass_handoff": false,
+        "shared_question_count": 1,
+        "continue_independent_work": true
+      },
+      "workflow": "skills/applications/auth.md"
+    },
+    {
+      "id": "B19",
+      "mechanism": "resource_persistence",
+      "input": {
+        "user_tabs": 4,
+        "task_tabs": 2,
+        "inactive_task_tab": 1,
+        "artifacts_only_temp": true
+      },
+      "expected": {
+        "close_user_tabs": false,
+        "checkpoint_then_close_inactive_task": true,
+        "ready": false,
+        "move_artifacts_to_private_durable_root": true
+      },
+      "workflow": "AGENTS.md"
+    },
+    {
+      "id": "B20",
+      "mechanism": "retain_baseline",
+      "input": {
+        "baseline_quality": 80,
+        "adapted_quality": 78,
+        "cost_measurement": null,
+        "heldout_gain": null
+      },
+      "expected": {
+        "winner": "baseline",
+        "adopt_pattern": false,
+        "claim_cost_savings": false
+      },
+      "workflow": "skills/improvement/SKILL.md"
+    }
+  ]
+}

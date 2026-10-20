@@ -1,4 +1,5 @@
 import hashlib
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -67,6 +68,17 @@ class ApplicationAcceptanceTests(unittest.TestCase):
         result = self.send(operation, {"fields":{}, "recipient":None, "attachments":[attachment]})
         self.assertEqual(result["stage"], "submission_observed")
         self.assertIn("optional_attachment_skipped", [event["type"] for event in read_events(self.root)])
+
+    def test_required_pdf_field_contract_from_observed_fixture(self):
+        fixture = json.loads((Path(__file__).parent / "fixtures/forms/attachment-fields.json").read_text())
+        constraints = fixture["constraints"]
+        with self.assertRaisesRegex(CampaignBlocked, "Required attachment"):
+            preflight_attachments(self.root, [], [], constraints)
+        cv = self.attachment()
+        self.assertEqual(len(preflight_attachments(self.root, [cv], [cv], constraints)), 1)
+        wrong = dict(cv, mime_type="text/plain")
+        with self.assertRaisesRegex(CampaignBlocked, "type"):
+            preflight_attachments(self.root, [wrong], [wrong], constraints)
 
     def test_shared_login_blocker_does_not_block_unrelated_portals(self):
         blocker = add_blocker(self.root, "login", {"portal":"portal-1", "session":"session-1"},
