@@ -1,0 +1,10 @@
+# Only reviewed product files may enter this checkout's Git history.
+*
+!/.gitignore
+!/README.md
+!/.githooks/
+!/.githooks/pre-commit
+!/scripts/
+!/scripts/check_public_tree.py
+!/tests/
+!/tests/test_public_tree.py

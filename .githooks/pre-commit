@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+cd "$(git rev-parse --show-toplevel)"
+if command -v python3 >/dev/null 2>&1; then
+    exec python3 scripts/check_public_tree.py
+fi
+if command -v python >/dev/null 2>&1; then
+    exec python scripts/check_public_tree.py
+fi
+echo 'Public-content check requires Python 3; commit blocked.' >&2
+exit 1
