@@ -115,7 +115,7 @@ _local = threading.local()
 
 
 @contextmanager
-def locked_workspace(path):
+def locked_workspace(path, lock_name=".writer.lock"):
     """Non-blocking, reentrant per-thread lock. OS releases it after a crash.
 
     Never delete the lock file: unlinking it would permit two independent locks.
@@ -123,11 +123,12 @@ def locked_workspace(path):
     root = Path(path).expanduser().resolve()
     load_workspace(root)
     held = getattr(_local, "held", {})
-    key = str(root)
+    key = str(root) + ":" + lock_name
     if key in held:
         yield root
         return
-    lock_path = root / ".writer.lock"
+    lock_path = workspace_path(root, lock_name)
+    private_directory(lock_path.parent)
     if lock_path.is_symlink():
         raise WorkspaceError("Invalid writer lock")
     fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o600)

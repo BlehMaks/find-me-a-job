@@ -4,6 +4,7 @@
   ".public-files.json",
   "README.md",
   "fmj/__init__.py",
+  "fmj/campaign.py",
   "fmj/feedback.py",
   "fmj/records.py",
   "fmj/workspace.py",
@@ -16,8 +17,13 @@
   "schemas/evidence.json",
   "schemas/fact.json",
   "scripts/check_public_tree.py",
+  "tests/test_application_acceptance.py",
+  "tests/test_application_state.py",
   "tests/test_feedback.py",
+  "tests/test_interview_handoffs.py",
+  "tests/test_managed_isolation.py",
   "tests/test_public_tree.py",
   "tests/test_records.py",
+  "tests/test_search_policy.py",
   "tests/test_workspace.py"
 ]
