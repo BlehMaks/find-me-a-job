@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explicit workspace feedback consent",
+  "type": "object",
+  "required": ["schema_version", "state", "repository", "actor", "at", "disclosure_version"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "state": {"enum": ["enabled", "disabled"]},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "actor": {"type": "string", "minLength": 1},
+    "at": {"type": "string", "minLength": 1},
+    "disclosure_version": {"type": "integer", "minimum": 1}
+  },
+  "description": "Absence of this file is unset consent and never permits sending. This schema describes the runtime feedback-consent snapshot, outside the versioned experience-record namespace."
+}

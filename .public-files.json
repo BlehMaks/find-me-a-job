@@ -53,6 +53,7 @@
   "schemas/event.json",
   "schemas/evidence.json",
   "schemas/fact.json",
+  "schemas/feedback-consent.json",
   "schemas/style-profile.json",
   "schemas/template-profile.json",
   "scripts/build_release.py",

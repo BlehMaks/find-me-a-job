@@ -53,6 +53,7 @@ include schemas/client-binding.json
 include schemas/event.json
 include schemas/evidence.json
 include schemas/fact.json
+include schemas/feedback-consent.json
 include schemas/style-profile.json
 include schemas/template-profile.json
 include scripts/build_release.py
