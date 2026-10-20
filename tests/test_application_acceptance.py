@@ -132,3 +132,14 @@ class ApplicationAcceptanceTests(unittest.TestCase):
             actual_form={"fields":{}, "recipient":None, "attachments":[]}, controlled=True)
         self.assertEqual(result["stage"], "delivery_unknown")
         self.assertEqual(status(self.root)["blockers"], [])
+
+    def test_outreach_is_not_counted_as_an_application(self):
+        application = create_operation(self.root, self.opportunity, "campaign-1")
+        self.send(application, {"fields":{}, "recipient":None, "attachments":[]})
+        recipient = {"channel":"email", "address":"researcher@example.invalid"}
+        outreach = create_operation(self.root, self.opportunity, "campaign-1", action="send_message", recipient=recipient)
+        self.send(outreach, {"fields":{}, "recipient":recipient, "attachments":[]})
+        current = status(self.root)
+        self.assertEqual(current["submission_count"], 1)
+        self.assertEqual(current["communication_count"], 1)
+        self.assertEqual({item["action"] for item in current["operations"]}, {"apply", "send_message"})

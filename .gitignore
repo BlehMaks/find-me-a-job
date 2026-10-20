@@ -15,6 +15,7 @@
 !/dependencies.lock.json
 !/fmj/
 !/fmj/__init__.py
+!/fmj/__main__.py
 !/fmj/campaign.py
 !/fmj/documents.py
 !/fmj/feedback.py
@@ -39,6 +40,7 @@
 !/prompts/letters-and-statements.md
 !/prompts/linkedin-profile.md
 !/prompts/voice.md
+!/pyproject.toml
 !/schemas/
 !/schemas/answer.json
 !/schemas/campaign-policy.json
@@ -101,6 +103,7 @@
 !/tests/fixtures/intake/narrative.json
 !/tests/test_application_acceptance.py
 !/tests/test_application_state.py
+!/tests/test_cli.py
 !/tests/test_document_acceptance.py
 !/tests/test_document_gates.py
 !/tests/test_feedback.py

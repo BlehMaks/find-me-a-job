@@ -24,6 +24,14 @@
       "source": "https://github.com/py-pdf/pypdf",
       "distribution": "separately installed Python package; no vendored binary",
       "license_source": "https://github.com/py-pdf/pypdf/blob/main/LICENSE"
+    },
+    {
+      "name": "tzdata",
+      "version": "2026.5",
+      "license": "Apache-2.0 and IANA data notices",
+      "source": "https://github.com/python/tzdata",
+      "distribution": "separately installed on native Windows; not vendored",
+      "license_source": "https://github.com/python/tzdata/blob/master/LICENSE"
     }
   ],
   "external_tools": [

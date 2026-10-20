@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "find-me-a-job"
+version = "0.1.0"
+description = "Local evidence-based career-agent workflows and private execution tools"
+requires-python = ">=3.11"
+dependencies = ["pypdf==6.21.1", "tzdata==2026.5; sys_platform == 'win32'"]
+
+[project.scripts]
+fmj = "fmj.__main__:main"
+
+[tool.setuptools]
+packages = ["fmj"]
+
+[tool.setuptools.data-files]
+"share/find-me-a-job" = ["AGENTS.md", "CLAUDE.md", "README.md", "THIRD_PARTY_NOTICES.md", "dependencies.lock.json"]
+"share/find-me-a-job/templates/industry" = ["templates/industry/*.tex", "templates/industry/*.json"]
+"share/find-me-a-job/templates/academic" = ["templates/academic/*.tex", "templates/academic/*.json"]
+"share/find-me-a-job/templates/portfolio" = ["templates/portfolio/*.tex", "templates/portfolio/*.json"]
+"share/find-me-a-job/schemas" = ["schemas/*.json"]
+"share/find-me-a-job/prompts" = ["prompts/*.md"]
+"share/find-me-a-job/adapters" = ["adapters/*.md"]
+"share/find-me-a-job/docs" = ["docs/*.md"]
+"share/find-me-a-job/markets" = ["markets/*.md"]
+"share/find-me-a-job/skills/experience" = ["skills/experience/*.md"]
+"share/find-me-a-job/skills/documents" = ["skills/documents/*.md"]
+"share/find-me-a-job/skills/applications" = ["skills/applications/*.md"]
+"share/find-me-a-job/skills/search" = ["skills/search/*.md"]
+"share/find-me-a-job/skills/interviews" = ["skills/interviews/*.md"]
+"share/find-me-a-job/skills/managed" = ["skills/managed/*.md"]
+"share/find-me-a-job/skills/improvement" = ["skills/improvement/*.md"]
+"share/find-me-a-job/skills/humanizer" = ["skills/humanizer/SKILL.md", "skills/humanizer/LICENSE"]

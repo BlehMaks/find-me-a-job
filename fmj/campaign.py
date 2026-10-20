@@ -228,9 +228,10 @@ def status(root):
         items = operations(root)
         return {"schema_version":1, "workspace_id":load_workspace(root)["id"], "paused":bool(state["pauses"]),
                 "pauses":deepcopy(state["pauses"]), "blockers":deepcopy(_active_blockers(state)),
-                "operations":[{"id":item["id"], "stage":item["stage"], "acknowledgement":item["acknowledgement"], "lifecycle":item["lifecycle"]} for item in items],
-                "submission_count":sum(item["stage"] == "submission_observed" for item in items),
-                "acknowledgement_count":sum(item["acknowledgement"] == "matched" for item in items)}
+                "operations":[{"id":item["id"], "action":item["intent"]["action"], "stage":item["stage"], "acknowledgement":item["acknowledgement"], "lifecycle":item["lifecycle"]} for item in items],
+                "submission_count":sum(item["stage"] == "submission_observed" and item["intent"]["action"] in {"apply", "submit_proposal"} for item in items),
+                "acknowledgement_count":sum(item["acknowledgement"] == "matched" and item["intent"]["action"] in {"apply", "submit_proposal"} for item in items),
+                "communication_count":sum(item["stage"] == "submission_observed" and item["intent"]["action"] in {"send_message", "connect", "follow_up"} for item in items)}
 
 
 def set_pause(root, actor, reason="Requested pause"):
@@ -514,6 +515,10 @@ def answer_clarification(root, clarification_id, answer, actor, update_id=None):
 def verify_operation_documents(root, intent):
     """Re-run document gates and require precisely the prepared artifact bytes."""
     bundle = intent.get("bundle")
+    if bundle is None:
+        # Text-only correspondence still passes authority, recipient and actual-form
+        # preflight; applications and messages carrying files need verified documents.
+        return intent.get("action") in {"send_message", "connect", "follow_up"} and not intent.get("attachments")
     if not bundle or bundle.get("workspace_id") != load_workspace(root)["id"]:
         return False
     directory = bundle.get("bundle_dir", bundle.get("directory"))
