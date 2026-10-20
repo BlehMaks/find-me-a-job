@@ -22,3 +22,5 @@ Telegram is a hosted external API used only after managed-mode configuration and
 Upstream Harness² uses Apache-2.0, but this repository does not bundle its engine, dependencies or local subagent transport. Retrospective study instructions do not imply executable sandboxing or permission to redistribute an adapter. A later optional installation must pin and review all selected components.
 
 Personalized local resume/provenance/browser instructions and proprietary host skills were not copied. The generic experience/document/application workflows are independently authored from product requirements; only rights-cleared Humanizer is vendored. Spec Kit is a development tool, not an end-user dependency or public planning payload.
+
+Local Python package builds use externally installed `setuptools` (MIT) and optionally `build` (MIT). These development tools and their distributions are not bundled. The release helper records no automatic upload; preserve upstream distribution notices if repackaging the tools themselves.

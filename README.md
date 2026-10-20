@@ -96,3 +96,5 @@ python scripts/check_public_tree.py --history
 ```
 
 PDF tests need the document tools above and `pypdf`; unavailable dependencies produce explicit skips. Installer shim tests prove argument/path behavior, not provider authentication. Keep private test results, replay cases and development plans outside the source repository.
+
+For local distribution checks, install the development tool `build` in an external environment and run `python scripts/build_release.py --output /absolute/new-package-directory` from a clean committed checkout. It builds wheel/sdist, neutralizes source-archive ownership metadata and checks exact approved paths, content and required notices. This does not choose a license or publish a package.

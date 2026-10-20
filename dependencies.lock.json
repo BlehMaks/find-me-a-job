@@ -118,6 +118,20 @@
       "license": "MIT",
       "end_user_runtime_required": false,
       "bundled": false
+    },
+    {
+      "name": "setuptools",
+      "source": "https://github.com/pypa/setuptools",
+      "license": "MIT",
+      "minimum": "75",
+      "bundled": false
+    },
+    {
+      "name": "build",
+      "source": "https://github.com/pypa/build",
+      "license": "MIT",
+      "end_user_runtime_required": false,
+      "bundled": false
     }
   ]
 }

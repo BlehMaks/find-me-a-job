@@ -114,7 +114,7 @@ def execute(a):
         if a.feedback!='unset' and not a.upstream:raise UserInputError('Feedback choice requires explicit --upstream owner/repository')
         value=create_workspace(a.workspace,mode=a.mode,owner=a.owner,operator=a.operator,locale=a.language,time_zone=a.timezone,agent=a.agent)
         if a.feedback!='unset':feedback.consent(a.workspace,a.feedback=='enabled',a.upstream,a.operator if a.mode=='managed' else a.owner)
-        return {'workspace':value,'next_action':'Read AGENTS.md with this external workspace; begin experience intake. Feedback is unset until explicitly chosen.'}
+        return {'workspace':value,'feedback_choice':a.feedback,'next_action':'Read AGENTS.md with this external workspace; begin experience intake. Feedback requires explicitly enabled consent and a reviewed synthetic proposal.'}
     if a.command=='doctor':return doctor(a.workspace,a.smoke)
     if a.command=='run':
         config=load_workspace(a.workspace);exe=shutil.which(config['agent'])

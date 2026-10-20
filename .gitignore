@@ -60,7 +60,9 @@
 !/schemas/style-profile.json
 !/schemas/template-profile.json
 !/scripts/
+!/scripts/build_release.py
 !/scripts/check_public_tree.py
+!/scripts/check_release_payload.py
 !/skills/
 !/skills/applications/
 !/skills/applications/SKILL.md
@@ -119,6 +121,7 @@
 !/tests/test_managed_isolation.py
 !/tests/test_public_tree.py
 !/tests/test_records.py
+!/tests/test_release_payload.py
 !/tests/test_search_policy.py
 !/tests/test_telegram_control.py
 !/tests/test_template_selection.py
