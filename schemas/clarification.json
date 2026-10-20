@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "clarification",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "question",
+    "scope",
+    "intended_actor",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "object"
+    },
+    "intended_actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "answered",
+        "superseded",
+        "operator_required"
+      ]
+    },
+    "answer": {},
+    "answer_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "originating_update": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    }
+  }
+}

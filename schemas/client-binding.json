@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "client-binding",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "client",
+    "operator",
+    "allowed_chat_id",
+    "allowed_user_id",
+    "confirmed",
+    "enabled"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$"
+    },
+    "workspace_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "client": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed_chat_id": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "allowed_user_id": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "confirmed": {
+      "type": "boolean"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "bot_secret_ref": {
+      "type": "string",
+      "minLength": 1
+    },
+    "browser_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "processed_update_ids": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      }
+    }
+  }
+}
