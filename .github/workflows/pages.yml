@@ -1,0 +1,39 @@
+name: Publish reviewed product page
+on:
+  workflow_dispatch:
+    inputs:
+      release_review_complete:
+        description: Public source/history/rights/pilot review completed and publication approved
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    if: ${{ inputs.release_review_complete == true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check site-only payload
+        run: python -m unittest discover -s tests -p test_site_artifact.py -v
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy reviewed static files
+        id: deployment
+        uses: actions/deploy-pages@v4

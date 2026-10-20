@@ -1,6 +1,7 @@
 [
   ".githooks/pre-commit",
   ".github/workflows/check.yml",
+  ".github/workflows/pages.yml",
   ".gitignore",
   ".public-files.json",
   "AGENTS.md",
@@ -56,6 +57,10 @@
   "scripts/build_release.py",
   "scripts/check_public_tree.py",
   "scripts/check_release_payload.py",
+  "site/assets/mark.svg",
+  "site/assets/structures.svg",
+  "site/index.html",
+  "site/styles.css",
   "skills/applications/SKILL.md",
   "skills/applications/auth.md",
   "skills/applications/preflight.md",
@@ -98,6 +103,7 @@
   "tests/test_records.py",
   "tests/test_release_payload.py",
   "tests/test_search_policy.py",
+  "tests/test_site_artifact.py",
   "tests/test_telegram_control.py",
   "tests/test_template_selection.py",
   "tests/test_workspace.py"
