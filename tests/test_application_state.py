@@ -119,7 +119,7 @@ class NativeDispatchBridgeTests(unittest.TestCase):
         with self.assertRaises(CampaignBlocked):
             begin_dispatch(self.root, self.first["id"], "owner", form(), None)
         bridge = begin_dispatch(self.root, self.first["id"], "owner", form(), lambda intent: True)
-        self.assertNotIn(bridge["ticket"], (self.root / "operations" / (self.first["id"] + ".json")).read_text())
+        self.assertNotIn(bridge["ticket"], str(load_operation(self.root, self.first["id"])))
         with self.assertRaises(AuthorityError):
             complete_dispatch(self.root, self.first["id"], "wrong-ticket", "submission_observed", "portal confirmed")
         with self.assertRaises(CampaignBlocked):

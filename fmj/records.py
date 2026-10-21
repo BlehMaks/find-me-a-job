@@ -187,12 +187,11 @@ def _digest(value):
 
 
 def read_events(root):
+    from . import store
     config = load_workspace(root)
-    directory = workspace_path(root, "events")
     events = []
     previous_hash = None
-    for sequence, path in enumerate(sorted(directory.glob("*.json")), start=1):
-        event = read_json(workspace_path(root, "events", path.name))
+    for sequence, event in enumerate(store.payloads(root, "events", " ORDER BY sequence"), start=1):
         expected = event.pop("hash", None)
         if event.get("sequence") != sequence or event.get("previous_hash") != previous_hash or _digest(event) != expected:
             raise RecordError("Event chain is corrupted or incomplete")
@@ -206,20 +205,28 @@ def read_events(root):
 
 
 def append_event(root, event_type, actor="owner", entity_id=None, operation_id=None,
-                 observed=True, evidence=None, data=None):
+                 observed=True, evidence=None, data=None, occurred_at=None):
+    from . import store
+    if occurred_at and datetime.fromisoformat(occurred_at).tzinfo is None:
+        raise RecordError("Event occurrence time must include timezone")
     with locked_workspace(root):
         config = load_workspace(root)
-        existing = read_events(root)
+        previous = store.connection(root).execute("SELECT sequence,payload FROM events ORDER BY sequence DESC LIMIT 1").fetchone()
+        head = json.loads(previous["payload"]) if previous else None
+        if head and _digest({k:v for k,v in head.items() if k != "hash"}) != head["hash"]:
+            raise RecordError("Event chain head is corrupted")
+        timestamp = now()
         event = {"schema_version": 1, "id": uuid.uuid4().hex, "workspace_id": config["id"],
-                 "type": event_type, "timestamp": now(), "time_zone": config["time_zone"],
+                 "type": event_type, "timestamp": timestamp, "observed_at":timestamp,
+                 "occurred_at":occurred_at, "time_zone": config["time_zone"],
                  "actor": actor, "operation_id": operation_id, "observed": observed,
                  "evidence": deepcopy(evidence), "data": deepcopy(data or {}),
-                 "sequence": len(existing) + 1, "previous_hash": existing[-1]["hash"] if existing else None}
+                 "sequence": previous["sequence"] + 1 if previous else 1, "previous_hash":head["hash"] if head else None}
         if entity_id is not None:
             event["entity_id"] = entity_id
         validate_record("event", event)
         event["hash"] = _digest(event)
-        atomic_write_json(workspace_path(root, "events", f"{event['sequence']:08d}-{event['id']}.json"), event)
+        store.insert_event(root, event)
         return deepcopy(event)
 
 

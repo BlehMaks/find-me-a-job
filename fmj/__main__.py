@@ -6,12 +6,13 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sqlite3
 import subprocess
 import sys
 import time
 import uuid
 
-from . import __version__, campaign, feedback, records, telegram
+from . import __version__, campaign, feedback, records, telegram, store, tracking
 from .workspace import create_workspace, load_workspace, atomic_write_json, read_json, workspace_path, WorkspaceError
 
 
@@ -76,6 +77,17 @@ def parser():
         if name=='doctor':q.add_argument('--smoke',action='store_true');q.add_argument('--json',action='store_true')
     q=commands.add_parser('record');q.add_argument('--workspace',required=True);q.add_argument('--kind',required=True);q.add_argument('--input',required=True);q.add_argument('--actor',default='owner')
     q=commands.add_parser('capability');q.add_argument('--workspace',required=True);q.add_argument('--name',choices=['browser','upload','mailbox','messaging','native'],required=True);q.add_argument('--evidence',required=True);q.add_argument('--adapter',required=True)
+    storage=commands.add_parser('storage').add_subparsers(dest='action',required=True)
+    for action in ('status','migrate','backup','restore'):
+        q=storage.add_parser(action);q.add_argument('--workspace',required=True)
+        if action in ('migrate','restore'):q.add_argument('--apply',action='store_true')
+        if action in ('backup','restore'):q.add_argument('--path',required=True)
+    track=commands.add_parser('track').add_subparsers(dest='action',required=True)
+    for action in ('company','opportunity','contact','referral','action','list','report'):
+        q=track.add_parser(action);q.add_argument('--workspace',required=True)
+        if action not in ('list','report'):q.add_argument('--input',required=True)
+        if action=='list':
+            q.add_argument('--kind',required=True);q.add_argument('--id');q.add_argument('--limit',type=int,default=25)
     docs=commands.add_parser('documents').add_subparsers(dest='action',required=True)
     for action in ('previews','build'):
         q=docs.add_parser(action);q.add_argument('--content',required=True);q.add_argument('--family',choices=['industry','academic','portfolio'],required=True);q.add_argument('--output',required=True)
@@ -85,10 +97,10 @@ def parser():
         if action=='review':
             q.add_argument('--reviewer',required=True);q.add_argument('--findings',required=True);q.add_argument('--pages',nargs='+',required=True);q.add_argument('--independent',action='store_true')
     cs=commands.add_parser('campaign').add_subparsers(dest='action',required=True)
-    for action in ('status','pause','resume','recover','screen','prepare','begin','complete','reconcile','receipt','grant','bind-client'):
+    for action in ('status','pause','resume','recover','screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):
         q=cs.add_parser(action);q.add_argument('--workspace',required=True);q.add_argument('--actor',default='owner')
-        if action in ('screen','prepare','begin','complete','reconcile','receipt','grant','bind-client'):q.add_argument('--input',required=True)
-        if action in ('begin','complete','reconcile','receipt'):q.add_argument('--operation',required=True)
+        if action in ('screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):q.add_argument('--input',required=True)
+        if action in ('refresh','begin','complete','reconcile','receipt'):q.add_argument('--operation',required=True)
         if action=='pause':q.add_argument('--reason',default='Requested pause')
     tg=commands.add_parser('telegram').add_subparsers(dest='action',required=True)
     for action in ('listen','ask'):
@@ -116,6 +128,18 @@ def execute(a):
         if a.feedback!='unset':feedback.consent(a.workspace,a.feedback=='enabled',a.upstream,a.operator if a.mode=='managed' else a.owner)
         return {'workspace':value,'feedback_choice':a.feedback,'next_action':'Read AGENTS.md with this external workspace; begin experience intake. Feedback requires explicitly enabled consent and a reviewed synthetic proposal.'}
     if a.command=='doctor':return doctor(a.workspace,a.smoke)
+    if a.command=='storage':
+        if a.action=='status':return {'workspace_version':load_workspace(a.workspace)['schema_version'],'database':'career.sqlite3','migration_required':load_workspace(a.workspace)['schema_version']==1}
+        if a.action=='migrate':return store.migrate(a.workspace,a.apply)
+        if a.action=='backup':return store.backup(a.workspace,a.path)
+        if not a.apply:raise UserInputError('Restore requires --apply after inspecting the private backup')
+        return store.restore(a.workspace,a.path)
+    if a.command=='track':
+        if a.action=='list':return tracking.query(a.workspace,a.kind,a.id,a.limit)
+        if a.action=='report':return tracking.report(a.workspace)
+        data=_json(a.input)
+        if a.action=='opportunity':return tracking.opportunity(a.workspace,data)
+        return getattr(tracking,a.action)(a.workspace,**data)
     if a.command=='run':
         config=load_workspace(a.workspace);exe=shutil.which(config['agent'])
         if not exe:raise UserInputError('Chosen agent is missing; use the official installer or install/install.sh --help')
@@ -163,6 +187,7 @@ def execute(a):
         data=_json(a.input)
         if a.action=='screen':return campaign.screen_opportunity(data['policy'],data['opportunity'])
         if a.action=='prepare':return campaign.create_operation(root,actor=a.actor,**data)
+        if a.action=='refresh':return campaign.refresh_operation(root,a.operation,data,actor=a.actor)
         if a.action=='grant':return campaign.grant_authority(root,by=a.actor,**data)
         if a.action=='bind-client':return campaign.bind_client(root,operator=a.actor,**data)
         if a.action=='begin':
@@ -201,7 +226,7 @@ def main(argv=None):
             if args.action=='check' and result['mechanical_status']!='passed':return 2
         return 0
     except KeyboardInterrupt:return 130
-    except (ValueError,OSError,KeyError,TypeError,ImportError) as error:
+    except (ValueError,OSError,KeyError,TypeError,ImportError,sqlite3.Error) as error:
         # Do not echo exception values: they can contain private form data or credentials.
         print(json.dumps({'status':'blocked','reason_class':type(error).__name__,
                           'reason':str(error) if isinstance(error,(UserInputError,WorkspaceError,records.RecordError,campaign.CampaignBlocked,feedback.FeedbackError,telegram.TelegramError)) else 'Input, file or dependency validation failed; inspect the private source and doctor report.',

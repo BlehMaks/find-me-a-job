@@ -24,7 +24,9 @@
   "fmj/documents.py",
   "fmj/feedback.py",
   "fmj/records.py",
+  "fmj/store.py",
   "fmj/telegram.py",
+  "fmj/tracking.py",
   "fmj/workspace.py",
   "install/install.ps1",
   "install/install.sh",
@@ -106,6 +108,7 @@
   "tests/test_release_payload.py",
   "tests/test_search_policy.py",
   "tests/test_site_artifact.py",
+  "tests/test_store.py",
   "tests/test_telegram_control.py",
   "tests/test_template_selection.py",
   "tests/test_workspace.py"

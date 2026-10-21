@@ -78,11 +78,14 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(load_record(self.root, "fact", "fact-1")["value"], "Designed the prototype")
 
     def test_event_corruption_detected(self):
+        from fmj.store import connection, encode
+        from fmj.workspace import locked_workspace
         append_event(self.root, "test")
-        path = next((self.root / "events").glob("*.json"))
-        data = json.loads(path.read_text())
-        data["actor"] = "different"
-        path.write_text(json.dumps(data))
+        with locked_workspace(self.root):
+            db = connection(self.root)
+            data = json.loads(db.execute("SELECT payload FROM events").fetchone()[0])
+            data["actor"] = "different"
+            db.execute("UPDATE events SET payload=?", (encode(data),))
         with self.assertRaisesRegex(RecordError, "corrupted"):
             read_events(self.root)
 

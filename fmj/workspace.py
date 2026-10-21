@@ -90,7 +90,7 @@ def create_workspace(path, mode="self_hosted", source_root=None, workspace_id=No
     from zoneinfo import ZoneInfo
     ZoneInfo(time_zone)
     private_directory(root)
-    config = {"schema_version": 1, "id": workspace_id or uuid.uuid4().hex,
+    config = {"schema_version": 2, "id": workspace_id or uuid.uuid4().hex,
               "mode": mode, "external_root": str(root), "owner": owner,
               "operator": operator, "locale": locale, "time_zone": time_zone,
               "agent": agent, "created_at": now(),
@@ -98,13 +98,15 @@ def create_workspace(path, mode="self_hosted", source_root=None, workspace_id=No
     atomic_write_json(root / "workspace.json", config)
     for directory in ("records", "events", "operations", "artifacts", "secrets", "runtime"):
         private_directory(root / directory)
+    with locked_workspace(root):
+        pass
     return config
 
 
 def load_workspace(path):
     root = Path(path).expanduser().resolve()
     config = read_json(root / "workspace.json")
-    if config.get("schema_version") != 1 or Path(config.get("external_root", "")).resolve() != root:
+    if config.get("schema_version") not in {1, 2} or Path(config.get("external_root", "")).resolve() != root:
         raise WorkspaceError("Invalid workspace version or root binding")
     if config.get("mode") not in {"self_hosted", "managed"}:
         raise WorkspaceError("Invalid workspace mode")
@@ -115,17 +117,25 @@ _local = threading.local()
 
 
 @contextmanager
-def locked_workspace(path, lock_name=".writer.lock"):
+def locked_workspace(path, lock_name=".writer.lock", transactional=True):
     """Non-blocking, reentrant per-thread lock. OS releases it after a crash.
 
     Never delete the lock file: unlinking it would permit two independent locks.
     """
     root = Path(path).expanduser().resolve()
-    load_workspace(root)
+    config = load_workspace(root)
+    transactional = transactional and lock_name == ".writer.lock"
+    if transactional and config["schema_version"] == 1:
+        raise WorkspaceError("Legacy workspace needs: fmj storage migrate --apply --workspace PATH")
     held = getattr(_local, "held", {})
     key = str(root) + ":" + lock_name
     if key in held:
-        yield root
+        if transactional:
+            from .store import transaction
+            with transaction(root):
+                yield root
+        else:
+            yield root
         return
     lock_path = workspace_path(root, lock_name)
     private_directory(lock_path.parent)
@@ -153,7 +163,12 @@ def locked_workspace(path, lock_name=".writer.lock"):
         acquired = True
         held[key] = True
         _local.held = held
-        yield root
+        if transactional:
+            from .store import transaction
+            with transaction(root):
+                yield root
+        else:
+            yield root
     finally:
         held.pop(key, None)
         if acquired:
@@ -181,3 +196,16 @@ def workspace_path(root, *parts):
     if not target.resolve().is_relative_to(root):
         raise WorkspaceError("Path escapes workspace")
     return target
+
+
+def contained_path(root, value):
+    """Accept host root aliases, but never follow a client subtree symlink."""
+    path, supplied = Path(value).absolute(), Path(root).absolute()
+    try:
+        relative = path.relative_to(supplied)
+    except ValueError:
+        try:
+            relative = path.relative_to(supplied.resolve())
+        except ValueError:
+            raise WorkspaceError("Path is outside the selected private workspace") from None
+    return workspace_path(root, *relative.parts)

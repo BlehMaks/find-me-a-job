@@ -18,6 +18,7 @@ import uuid
 from .records import (RecordError, _digest, _no_secrets, append_event, contact_key, identifier,
                       confirmed_answer, list_records, load_record, opportunity_key, save_record, validate_record)
 from .workspace import atomic_write_json, load_workspace, locked_workspace, now, read_json, workspace_path
+from . import store, tracking
 
 
 class CampaignBlocked(ValueError):
@@ -36,13 +37,12 @@ SEND_ACTIONS = frozenset({"apply", "send_message", "connect", "follow_up", "subm
 
 
 def _state(root):
-    path = workspace_path(root, "runtime", "campaign.json")
-    return read_json(path) if path.exists() else {"pauses":[], "blockers":[], "authority":{}}
+    return store.state(root, "campaign", {"pauses":[], "blockers":[], "authority":{}})
 
 
 def _save_state(root, state):
     _no_secrets(state)
-    atomic_write_json(workspace_path(root, "runtime", "campaign.json"), state)
+    store.save_state(root, "campaign", state)
 
 
 def grant_authority(root, actor, actions, by, policy_id=None, policy_version=None):
@@ -142,19 +142,23 @@ def _operation_path(root, operation_id):
 
 
 def load_operation(root, operation_id):
-    value = read_json(_operation_path(root, operation_id))
+    values = store.payloads(root, "operations", " WHERE id=?", (identifier(operation_id),))
+    if not values:
+        raise CampaignBlocked("Unknown operation")
+    value = values[0]
     if value.get("workspace_id") != load_workspace(root)["id"] or value.get("intent_hash") != _digest(value["intent"]):
         raise CampaignBlocked("Operation intent is corrupted or belongs to another workspace")
     return value
 
 
 def operations(root):
-    return [load_operation(root, path.stem) for path in sorted(workspace_path(root, "operations").glob("*.json"))]
+    return store.payloads(root, "operations", " ORDER BY created_at,id")
 
 
 def create_operation(root, opportunity, policy_id, bundle=None, answers=None, recipient=None,
                      action="apply", actor="owner", attachments=None, form_values=None,
-                     purpose="application", contact_identity=None):
+                     purpose="application", contact_identity=None, thread_id=None,
+                     turn_id=None, reply_to=None, refresh=False):
     """Persist immutable versions before any dispatch; repeated identity returns intent."""
     if action not in SEND_ACTIONS:
         raise AuthorityError("Unsupported outbound action; human decisions cannot be dispatched")
@@ -164,12 +168,21 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
         screening = screen_opportunity(policy, opportunity)
         if screening["decision"] != "eligible":
             raise CampaignBlocked("Opportunity has not passed the current campaign policy")
-        opp_id = opportunity_key(opportunity["employer"], opportunity.get("requisition_id"), opportunity.get("url"))
+        registered = tracking.opportunity(root, opportunity)
+        opp_id = registered["id"]
+        opportunity = registered
         recipient_id = contact_key(recipient.get("channel"), recipient.get("address"), contact_identity) if recipient else None
-        identity = _digest([opp_id if action in {"apply", "submit_proposal"} else recipient_id, action, purpose])
-        for previous in operations(root):
-            if previous["identity"] == identity:
-                return previous
+        app_id, conversation_id = None, None
+        if action in {"apply", "submit_proposal"}:
+            app_id = tracking.application(root, opp_id, policy_id, "proposal" if action == "submit_proposal" else "employment")
+            identity = _digest([app_id])
+        elif recipient_id:
+            person = tracking.contact(root, recipient["channel"], recipient["address"], contact_identity,
+                company_id=registered["company_id"], refused=recipient.get("refused", False))
+            if person.get("refused"):
+                raise CampaignBlocked("Recipient refused further contact")
+            conversation_id = tracking.conversation(root, person, opp_id, policy_id, thread_id)
+            identity = _digest([conversation_id, turn_id or "initial", action])
         if action in {"send_message", "connect", "follow_up"} and not recipient_id:
             raise CampaignBlocked("Communication requires an exact recipient")
         if bundle is not None and bundle.get("workspace_id") != config["id"]:
@@ -193,18 +206,52 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
         intent = {"opportunity":deepcopy(opportunity), "opportunity_id":opp_id, "policy":policy,
                   "bundle":deepcopy(bundle), "answers":snapshots, "recipient":deepcopy(recipient),
                   "recipient_id":recipient_id, "action":action, "purpose":purpose,
+                  "thread_id":thread_id, "turn_id":turn_id, "reply_to":reply_to,
                   "attachments":deepcopy(attachments or []), "form_values":deepcopy(form_values or {})}
+        previous = store.payloads(root, "operations", " WHERE " + ("application_id=?" if app_id else "identity=?") + " ORDER BY revision DESC,created_at DESC LIMIT 1", (app_id or identity,))
+        revision = 1
+        if previous:
+            prior = previous[0]
+            if prior["stage"] not in {"ready", "not_sent"}:
+                if refresh:
+                    raise CampaignBlocked("Submitted or uncertain preparation cannot be refreshed")
+                return prior
+            if prior["intent_hash"] == _digest(intent):
+                return prior
+            if not refresh:
+                raise CampaignBlocked("Preparation changed; use campaign refresh to retain the earlier revision")
+            prior["stage"] = "superseded"
+            _save_operation(root, prior)
+            revision = prior.get("revision", 1) + 1
         operation = {"schema_version":1, "id":uuid.uuid4().hex, "workspace_id":config["id"],
                      "identity":identity, "intent":intent, "intent_hash":_digest(intent),
+                     "application_id":app_id, "opportunity_id":opp_id, "revision":revision,
                      "stage":"ready", "acknowledgement":"unmatched", "lifecycle":"pending", "created_at":now()}
-        append_event(root, "operation_prepared", actor=actor, operation_id=operation["id"], data={"intent":intent})
-        atomic_write_json(_operation_path(root, operation["id"]), operation)
+        _save_operation(root, operation)
+        if conversation_id:
+            db = store.connection(root)
+            db.execute("INSERT INTO messages VALUES(?,?,?,?) ON CONFLICT(thread_id,turn_id) DO UPDATE SET operation_id=excluded.operation_id",
+                       (identity, conversation_id, turn_id or "initial", operation["id"]))
+        append_event(root, "operation_prepared", actor=actor, operation_id=operation["id"], data={"intent_hash":operation["intent_hash"], "revision":revision})
         return deepcopy(operation)
 
 
 def _save_operation(root, operation):
     _no_secrets(operation)
-    atomic_write_json(_operation_path(root, operation["id"]), operation)
+    tracking.save_operation(root, operation)
+
+
+def refresh_operation(root, operation_id, changes, actor="owner"):
+    with locked_workspace(root):
+        old = load_operation(root, operation_id)
+        if old["stage"] not in {"ready", "not_sent"}:
+            raise CampaignBlocked("Only unsent preparation can be refreshed")
+        intent = old["intent"]
+        arguments = {key:deepcopy(intent[key]) for key in ("opportunity", "bundle", "answers", "recipient", "action", "attachments", "form_values", "purpose", "thread_id", "turn_id", "reply_to") if key in intent}
+        arguments.update(policy_id=intent["policy"]["id"])
+        arguments.update(changes)
+        arguments.pop("refresh", None)
+        return create_operation(root, **arguments, actor=actor, refresh=True)
 
 
 def _active_blockers(state, operation=None):
@@ -225,13 +272,17 @@ def _active_blockers(state, operation=None):
 def status(root):
     with locked_workspace(root):
         state = _state(root)
-        items = operations(root)
+        items = store.payloads(root, "operations", " ORDER BY stage IN ('dispatching','delivery_unknown') DESC,created_at DESC LIMIT 25")
+        db = store.connection(root)
+        summary = tracking.report(root)
         return {"schema_version":1, "workspace_id":load_workspace(root)["id"], "paused":bool(state["pauses"]),
                 "pauses":deepcopy(state["pauses"]), "blockers":deepcopy(_active_blockers(state)),
+                "next_actions":summary["pending_actions"], "direction_reviews":summary["direction_reviews"],
                 "operations":[{"id":item["id"], "action":item["intent"]["action"], "stage":item["stage"], "acknowledgement":item["acknowledgement"], "lifecycle":item["lifecycle"]} for item in items],
-                "submission_count":sum(item["stage"] == "submission_observed" and item["intent"]["action"] in {"apply", "submit_proposal"} for item in items),
-                "acknowledgement_count":sum(item["acknowledgement"] == "matched" and item["intent"]["action"] in {"apply", "submit_proposal"} for item in items),
-                "communication_count":sum(item["stage"] == "submission_observed" and item["intent"]["action"] in {"send_message", "connect", "follow_up"} for item in items)}
+                "operations_limit":25,
+                "submission_count":summary["applications"],
+                "acknowledgement_count":db.execute("SELECT COUNT(DISTINCT application_id) FROM operations WHERE application_id IS NOT NULL AND json_extract(payload,'$.acknowledgement')='matched'").fetchone()[0],
+                "communication_count":db.execute("SELECT COUNT(*) FROM operations WHERE stage='submission_observed' AND application_id IS NULL").fetchone()[0]}
 
 
 def set_pause(root, actor, reason="Requested pause"):
@@ -585,7 +636,7 @@ def read_material(root, relative_path, actor):
 
 
 def _require_idle_dispatcher(root, operation_id):
-    if any(item["id"] != operation_id and item["stage"] in {"dispatching", "delivery_unknown"} for item in operations(root)):
+    if store.rows(root, "SELECT id FROM operations WHERE id<>? AND stage IN ('dispatching','delivery_unknown') LIMIT 1", (operation_id,)):
         raise CampaignBlocked("Another operation is in-flight or requires delivery reconciliation")
 
 

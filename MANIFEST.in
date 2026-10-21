@@ -24,6 +24,8 @@ include fmj/campaign.py
 include fmj/documents.py
 include fmj/feedback.py
 include fmj/records.py
+include fmj/store.py
+include fmj/tracking.py
 include fmj/telegram.py
 include fmj/workspace.py
 include install/install.ps1
@@ -103,6 +105,7 @@ include tests/test_interview_handoffs.py
 include tests/test_managed_isolation.py
 include tests/test_public_tree.py
 include tests/test_records.py
+include tests/test_store.py
 include tests/test_release_payload.py
 include tests/test_search_policy.py
 include tests/test_site_artifact.py
