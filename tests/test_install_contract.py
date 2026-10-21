@@ -258,6 +258,33 @@ class PowerShellInstallContract(unittest.TestCase):
             result = subprocess.run(["pwsh", "-NoProfile", "-File", str(ROOT / "install/install.ps1"), "-Workspace", str(root), "-Agent", "codex", "-DryRun"], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(root.exists())
+            result = subprocess.run(['pwsh', '-NoProfile', '-File', str(ROOT / 'install/clone.ps1'),
+                                     '-Checkout', str(root), '-DryRun'], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse(root.exists())
+
+    @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell not installed; component behavior untested')
+    def test_powershell_desktop_presence_does_not_require_cli(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            app = base / 'desktop app'
+            app.mkdir()
+            for interface in ('desktop', 'cli'):
+                script = base / 'probe.ps1'
+                def quote(value):
+                    return "'" + str(value).replace("'", "''") + "'"
+                script.write_text('''function Get-Command {
+    [CmdletBinding()]param([string]$Name)
+    if ($Name -eq 'codex') { return $null }
+    return [pscustomobject]@{ Name = $Name }
+}
+& ''' + quote(ROOT / 'install/install.ps1') + ' -Check -Agent codex -Interface ' + interface +
+                                  ' -DesktopApp ' + quote(app), encoding='utf-8')
+                result = subprocess.run(['pwsh', '-NoProfile', '-File', str(script)], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0 if interface == 'desktop' else 2, result.stderr)
+                self.assertIn('desktop: present', result.stdout)
+                self.assertIn('codex: missing', result.stdout)
+                self.assertIn('Account/login/plan/quota: unknown', result.stdout)
 
 
 class DesktopHandoffTests(unittest.TestCase):
@@ -279,6 +306,9 @@ class DesktopHandoffTests(unittest.TestCase):
             handoff(root, ROOT, 'desktop')
             self.assertEqual((root / 'workspace.json').read_bytes(), config)
             self.assertFalse((ROOT / 'runtime/start-here.md').exists())
+            cli_text, _ = handoff(root, ROOT, 'cli')
+            self.assertIn('fmj run', cli_text)
+            self.assertNotIn('Open the source folder:', cli_text)
 
     def test_missing_source_instructions_rejected(self):
         from fmj.setup import handoff

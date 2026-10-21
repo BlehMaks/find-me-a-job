@@ -27,14 +27,19 @@ def handoff(workspace, source, interface):
         'and logs in the private workspace, never in the source checkout. '
         'Do not start a campaign before intake and campaign approval.'
     )
-    steps = ('Open Claude, choose the Code tab, select a Local environment, then Open folder.'
-             if config['agent'] == 'claude' else
-             'Open Codex (or Codex mode in the current ChatGPT desktop app); add/open a local project folder.')
+    if interface == 'cli':
+        steps = ('Run the printed fmj run command. It supplies the private working directory, '
+                 'runtime PATH and source instructions to the chosen CLI automatically.')
+        folders = f'Source instructions: {source}\n\nPrivate workspace: {root}'
+    else:
+        steps = ('Open Claude, choose the Code tab, select a Local environment, then Open folder.'
+                 if config['agent'] == 'claude' else
+                 'Open Codex (or Codex mode in the current ChatGPT desktop app); add/open a local project folder.')
+        folders = f'Open the source folder: {source}\n\nAlso grant access to this separate private folder when prompted: {root}'
     text = (
         '# Start your career assistant\n\n'
         f'Selected interface: {interface}. Provider: {config["agent"]}.\n\n'
-        f'{steps}\n\nOpen the source folder: {source}\n\n'
-        f'Also grant access to this separate private folder when prompted: {root}\n\n'
+        f'{steps}\n\n{folders}\n\n'
         'Folder access, browser control, uploads and mailbox access are separate permissions. '
         'If the app cannot access both folders, ask it to request the missing folder; '
         'do not move private data into the repository. UI labels vary by app version.\n\n'
