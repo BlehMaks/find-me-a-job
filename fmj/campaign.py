@@ -16,7 +16,7 @@ import re
 import uuid
 
 from .records import (RecordError, _digest, _no_secrets, append_event, contact_key, identifier,
-                      confirmed_answer, list_records, load_record, opportunity_key, save_record, validate_record)
+                      canonical_url, confirmed_answer, list_records, load_record, opportunity_key, save_record, validate_record)
 from .workspace import atomic_write_json, load_workspace, locked_workspace, now, read_json, workspace_path
 from . import store, tracking
 
@@ -182,7 +182,7 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
             if person.get("refused"):
                 raise CampaignBlocked("Recipient refused further contact")
             conversation_id = tracking.conversation(root, person, opp_id, policy_id, thread_id)
-            identity = _digest([conversation_id, turn_id or "initial", action])
+            identity = _digest([conversation_id, turn_id or action + "-initial"])
         if action in {"send_message", "connect", "follow_up"} and not recipient_id:
             raise CampaignBlocked("Communication requires an exact recipient")
         if bundle is not None and bundle.get("workspace_id") != config["id"]:
@@ -228,10 +228,20 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
                      "application_id":app_id, "opportunity_id":opp_id, "revision":revision,
                      "stage":"ready", "acknowledgement":"unmatched", "lifecycle":"pending", "created_at":now()}
         _save_operation(root, operation)
+        if bundle is not None:
+            from .documents import register_document
+            document = register_document(root, bundle.get("bundle_dir", bundle.get("directory", "")))
+            for attachment in intent["attachments"]:
+                if attachment.get("role", attachment.get("field")) == "cv":
+                    variant = Path(attachment["path"]).stem
+                    if variant not in {"standard", "inactive"}:
+                        raise CampaignBlocked("Select an exact approved CV artifact variant")
+                    store.connection(root).execute("INSERT INTO preparation_documents VALUES(?,?,?,?,?)", (
+                        operation["id"], document["id"], attachment["field"], variant, attachment["sha256"]))
         if conversation_id:
             db = store.connection(root)
             db.execute("INSERT INTO messages VALUES(?,?,?,?) ON CONFLICT(thread_id,turn_id) DO UPDATE SET operation_id=excluded.operation_id",
-                       (identity, conversation_id, turn_id or "initial", operation["id"]))
+                       (identity, conversation_id, turn_id or action + "-initial", operation["id"]))
         append_event(root, "operation_prepared", actor=actor, operation_id=operation["id"], data={"intent_hash":operation["intent_hash"], "revision":revision})
         return deepcopy(operation)
 
@@ -507,16 +517,42 @@ def reconcile_operation(root, operation_id, outcome, evidence, actor="owner"):
 
 
 def match_receipt(root, operation_id, receipt, actor="owner"):
+    with locked_workspace(root, "runtime/.dispatch.lock"):
+        return _match_receipt(root, operation_id, receipt, actor)
+
+
+def _match_receipt(root, operation_id, receipt, actor):
     with locked_workspace(root):
         operation = load_operation(root, operation_id)
         expected = operation["intent"]["opportunity"]
-        if not receipt.get("evidence") or not receipt.get("requisition_id") or str(receipt["requisition_id"]).casefold() != str(expected.get("requisition_id", "")).casefold() or _employer(receipt.get("employer", "")) != _employer(expected["employer"]):
+        db = store.connection(root)
+        company_id = db.execute("SELECT company_id FROM opportunities WHERE id=?", (operation["opportunity_id"],)).fetchone()[0]
+        employer = db.execute("SELECT company_id FROM company_aliases WHERE kind='name' AND value=?", (tracking._company_name(receipt.get("employer", "")),)).fetchone()
+        matches = set()
+        for kind, value in (("requisition", str(receipt.get("requisition_id", "")).strip().casefold()),
+                            ("url", canonical_url(receipt["url"]) if receipt.get("url") else "")):
+            if value:
+                matches.update(row[0] for row in db.execute("SELECT opportunity_id FROM opportunity_aliases WHERE company_id=? AND kind=? AND value=?", (company_id,kind,value)))
+        explicit = receipt.get("application_id") == operation.get("application_id") and bool(receipt.get("application_id"))
+        if not operation.get("application_id") or not receipt.get("evidence") or not employer or employer[0] != company_id or not (matches == {operation["opportunity_id"]} or explicit and not matches):
             append_event(root, "receipt_unmatched", actor=actor, operation_id=operation_id,
                          evidence=receipt.get("evidence"), data={"reason":"No unambiguous employer/requisition match"})
             return False
+        if operation["stage"] in {"dispatching", "superseded"}:
+            raise CampaignBlocked("Recover in-flight delivery or select the current preparation before matching a receipt")
+        receipt_id = _digest([receipt.get("channel", "email"), receipt.get("message_id", receipt.get("receipt_id", receipt["evidence"]))])
+        prior = db.execute("SELECT application_id FROM receipts WHERE id=?", (receipt_id,)).fetchone()
+        if prior and prior[0] != operation["application_id"]:
+            raise CampaignBlocked("Receipt is already associated with another application")
+        db.execute("INSERT OR IGNORE INTO receipts VALUES(?,?,?)", (receipt_id,operation["application_id"],store.encode(receipt)))
+        if operation["stage"] != "submission_observed":
+            operation.update(stage="submission_observed", reconciled_at=now(), delivery_evidence=deepcopy(receipt),
+                             submission_basis="matched_receipt", submitted_snapshot="unverified_from_receipt")
+            operation.pop("bridge_ticket_hash", None)
         operation.update(acknowledgement="matched", acknowledgement_evidence=deepcopy(receipt))
         _save_operation(root, operation)
-        append_event(root, "acknowledgement_matched", actor=actor, operation_id=operation_id, evidence=receipt)
+        append_event(root, "acknowledgement_matched", actor=actor, operation_id=operation_id, evidence=receipt,
+                     event_id=_digest([receipt_id,operation["application_id"]]))
         return True
 
 
@@ -583,20 +619,65 @@ def verify_operation_documents(root, intent):
         directory = workspace_path(root, *relative.parts)
     except (ValueError, OSError):
         return False
-    from .documents import finalize_bundle
-    result = finalize_bundle(directory)
-    return result.get("ready") is True and result.get("post_check", {}).get("artifact_hashes") == bundle["artifact_hashes"]
+    from .documents import finalize_bundle, register_document
+    try:
+        register_document(root, directory)
+        result = finalize_bundle(directory, root)
+        if result.get("ready") is not True or result.get("post_check", {}).get("artifact_hashes") != bundle["artifact_hashes"]:
+            return False
+        cvs = [item for item in intent.get("attachments", []) if item.get("role", item.get("field")) == "cv"]
+        if intent.get("action") in {"apply", "submit_proposal"} and len(cvs) != 1:
+            return False
+        from .workspace import contained_path
+        for cv in cvs:
+            selected = contained_path(root, cv["path"])
+            if selected.parent != directory or selected.name not in {"standard.pdf", "inactive.pdf"} or cv.get("sha256") != bundle["artifact_hashes"].get(selected.name):
+                return False
+        return True
+    except (ValueError, KeyError, OSError):
+        return False
 
 
-def observe_lifecycle(root, operation_id, lifecycle, evidence, actor="owner"):
-    if lifecycle not in {"reply", "interview", "offer", "rejected"} or not evidence:
+def observe_lifecycle(root, operation_id, lifecycle, evidence, actor="owner", occurred_at=None,
+                      due_at=None, deadline_source=None, owner=None):
+    if lifecycle not in {"reply", "interview", "interview_held", "offer", "rejected", "assessment_assigned",
+            "assessment_completed", "assessment_received", "assessment_evaluated", "assessment_link_expired",
+            "host_interest", "shortlist", "funding_awarded"} or not evidence:
         raise CampaignBlocked("Record observed replies/invitations/outcomes; human decisions need a handoff")
     with locked_workspace(root):
         item = load_operation(root, operation_id)
-        item["lifecycle"] = lifecycle
+        event_id = _digest([operation_id,lifecycle,evidence,occurred_at,due_at])
+        if store.rows(root,"SELECT id FROM events WHERE id=?",(event_id,)):
+            return item
+        milestones = set(item.get("milestones", []))
+        if item["lifecycle"] in {"interview", "offer"}:
+            milestones.add(item["lifecycle"])
+        if lifecycle not in {"reply", "rejected", "assessment_link_expired"}:
+            milestones.add(lifecycle)
+        item["milestones"] = sorted(milestones)
+        item["latest_interaction"] = lifecycle
+        if lifecycle in {"offer", "rejected"}:
+            item["terminal_outcome"] = lifecycle
+        highest = next((state for state in ("offer", "interview_held", "interview", "shortlist", "host_interest", "reply") if state in milestones or lifecycle == state), item["lifecycle"])
+        item["lifecycle"] = item.get("terminal_outcome", highest)
         _save_operation(root, item)
+        config = load_workspace(root)
+        responsible = owner or config["owner"]
+        assessment_id = _digest([operation_id,"assessment"])
+        if lifecycle == "assessment_completed":
+            tracking.action(root,"assessment",responsible,operation_id,action_id=assessment_id,status="completed",evidence=evidence)
+        elif lifecycle == "assessment_assigned":
+            if "assessment_completed" not in milestones:
+                tracking.action(root,"assessment",responsible,operation_id,due_at,deadline_source,evidence,action_id=assessment_id)
+        elif lifecycle == "assessment_link_expired" and "assessment_completed" in milestones:
+            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=_digest([operation_id,"assessment_receipt"]),evidence=evidence)
+        elif lifecycle == "assessment_received":
+            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=_digest([operation_id,"assessment_receipt"]),status="completed",evidence=evidence)
+        elif lifecycle in {"reply", "interview", "host_interest", "shortlist"}:
+            tracking.action(root,"review_invitation" if lifecycle == "interview" else "review_reply",responsible,
+                operation_id,due_at,deadline_source,evidence,action_id=_digest([event_id,"next_action"]))
         append_event(root, "lifecycle_observed", actor=actor, operation_id=operation_id,
-                     evidence=evidence, data={"lifecycle":lifecycle})
+                     evidence=evidence, data={"lifecycle":lifecycle},occurred_at=occurred_at,event_id=event_id)
         return deepcopy(item)
 
 

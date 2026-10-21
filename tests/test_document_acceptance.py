@@ -83,3 +83,34 @@ class DocumentAcceptanceTests(unittest.TestCase):
         result = finalize_bundle(output)
         self.assertFalse(result['ready'])
         self.assertEqual(result['post_check']['editorial_visual_status'], 'invalid_review_record')
+
+    def test_cli_profile_letter_extra_sections_and_proof_link_survive(self):
+        import contextlib
+        import io
+        from fmj.__main__ import main
+        content={'name':'Synthetic Example','contact':[],
+            'teaching':[{'title':'Teaching practice','bullets':['Taught a verified methods course.']}],
+            'funding':[{'title':'Research award','bullets':['Awarded funding for a documented research project.']}],
+            'selected_work':[{'title':'Selected work','links':[{'label':'Case study','url':'https://example.invalid/work'}],
+                              'bullets':['Created the credited work sample.']}]}
+        profile={**select_templates('academic')[0],'sections':['teaching','funding','selected_work'],
+                 'paper':'letter','max_pages':1,'approved_by':'synthetic-candidate','approved_at':'2026-01-01T00:00:00Z'}
+        folder=Path(self.temp.name)/'profile-cli';folder.mkdir()
+        (folder/'content.json').write_text(json.dumps(content));(folder/'profile.json').write_text(json.dumps(profile))
+        with contextlib.redirect_stdout(io.StringIO()):
+            code=main(['documents','build','--content',str(folder/'content.json'),
+                      '--profile',str(folder/'profile.json'),'--output',str(folder/'output')])
+        self.assertEqual(0,code)
+        report=verify_bundle(folder/'output')
+        self.assertEqual('passed',report['mechanical_status'],report['issues'])
+        self.assertEqual({'standard':1,'inactive':1},report['pages'])
+        text=(folder/'output'/'inactive.txt').read_text()
+        for term in ('Teaching','Funding','Selected Work','https://example.invalid/work'):
+            self.assertIn(term,text)
+        self.assertEqual('letter',json.loads((folder/'output'/'template-profile.json').read_text())['paper'])
+
+    def test_unknown_content_or_profile_constraint_never_disappears(self):
+        from fmj.documents import validate_content,validate_profile
+        for change in ({'unrecognized_section':[]},{'experience':[{'title':'Synthetic','unexpected_visible_field':'Lost work'}]}):
+            with self.assertRaises(ValueError):validate_content({**self.content,**change})
+        with self.assertRaises(ValueError):validate_profile({**select_templates('industry')[0],'columns':2})

@@ -90,17 +90,19 @@ def parser():
             q.add_argument('--kind',required=True);q.add_argument('--id');q.add_argument('--limit',type=int,default=25)
     docs=commands.add_parser('documents').add_subparsers(dest='action',required=True)
     for action in ('previews','build'):
-        q=docs.add_parser(action);q.add_argument('--content',required=True);q.add_argument('--family',choices=['industry','academic','portfolio'],required=True);q.add_argument('--output',required=True)
-        if action=='build':q.add_argument('--variant',required=True)
-    for action in ('check','finalize','review'):
+        q=docs.add_parser(action);q.add_argument('--content',required=True);q.add_argument('--family',choices=['industry','academic','portfolio']);q.add_argument('--output',required=True)
+        q.add_argument('--profile');q.add_argument('--workspace')
+        if action=='build':q.add_argument('--variant')
+    for action in ('check','finalize','review','review-pack'):
         q=docs.add_parser(action);q.add_argument('--bundle',required=True)
+        if action=='finalize':q.add_argument('--workspace')
         if action=='review':
             q.add_argument('--reviewer',required=True);q.add_argument('--findings',required=True);q.add_argument('--pages',nargs='+',required=True);q.add_argument('--independent',action='store_true')
     cs=commands.add_parser('campaign').add_subparsers(dest='action',required=True)
-    for action in ('status','pause','resume','recover','screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):
+    for action in ('status','show','observe','pause','resume','recover','screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):
         q=cs.add_parser(action);q.add_argument('--workspace',required=True);q.add_argument('--actor',default='owner')
-        if action in ('screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):q.add_argument('--input',required=True)
-        if action in ('refresh','begin','complete','reconcile','receipt'):q.add_argument('--operation',required=True)
+        if action in ('observe','screen','prepare','refresh','begin','complete','reconcile','receipt','grant','bind-client'):q.add_argument('--input',required=True)
+        if action in ('show','observe','refresh','begin','complete','reconcile','receipt'):q.add_argument('--operation',required=True)
         if action=='pause':q.add_argument('--reason',default='Requested pause')
     tg=commands.add_parser('telegram').add_subparsers(dest='action',required=True)
     for action in ('listen','ask'):
@@ -170,21 +172,30 @@ def execute(a):
         return {'capability':a.name,'status':'verified_by_agent_observation','scope':'Recheck account/form state before each outbound operation'}
     if a.command=='documents':
         from . import documents
-        if a.action=='previews':return documents.build_previews(_json(a.content),a.family,a.output)
-        if a.action=='build':
-            profiles=documents.select_templates(a.family);profile=next((p for p in profiles if p['variant']==a.variant),None)
-            if profile is None:raise UserInputError('Unknown structural variant')
-            return documents.build_bundle(_json(a.content),profile,a.output)
+        if a.action in ('build','previews'):
+            profile=documents.validate_profile(_json(a.profile)) if a.profile else None
+            if profile and (a.family and a.family!=profile['family'] or getattr(a,'variant',None) and a.variant!=profile['variant']):
+                raise UserInputError('Profile conflicts with family or variant flags')
+            if a.action=='previews':
+                if profile:return [documents.build_bundle(_json(a.content),profile,a.output,a.workspace)]
+                return documents.build_previews(_json(a.content),a.family,a.output,a.workspace)
+            if profile is None:
+                profiles=documents.select_templates(a.family);profile=next((p for p in profiles if p['variant']==a.variant),None)
+            if profile is None:raise UserInputError('Choose an approved --profile or family and variant')
+            return documents.build_bundle(_json(a.content),profile,a.output,a.workspace)
         if a.action=='check':return documents.verify_bundle(a.bundle)
+        if a.action=='review-pack':return documents.review_pack(a.bundle)
         if a.action=='review':return documents.record_review(a.bundle,a.reviewer,_json(a.findings),a.pages,independent=a.independent,reviewed_dimensions=['factual','vacancy_fit','visual'])
-        return documents.finalize_bundle(a.bundle)
+        return documents.finalize_bundle(a.bundle,a.workspace)
     if a.command=='campaign':
         root=a.workspace
         if a.action=='status':return campaign.status(root)
+        if a.action=='show':return campaign.load_operation(root,a.operation)
         if a.action=='pause':return campaign.set_pause(root,a.actor,a.reason)
         if a.action=='resume':return campaign.resume_campaign(root,a.actor)
         if a.action=='recover':return campaign.recover_dispatches(root,a.actor)
         data=_json(a.input)
+        if a.action=='observe':return campaign.observe_lifecycle(root,a.operation,actor=a.actor,**data)
         if a.action=='screen':return campaign.screen_opportunity(data['policy'],data['opportunity'])
         if a.action=='prepare':return campaign.create_operation(root,actor=a.actor,**data)
         if a.action=='refresh':return campaign.refresh_operation(root,a.operation,data,actor=a.actor)

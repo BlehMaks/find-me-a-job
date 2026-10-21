@@ -43,6 +43,8 @@ FAMILIES = {
 }
 CARRIERS = {"\u200b": "zero-width space", "\u2060": "word joiner", "\ufeff": "byte-order/zero-width mark"}
 UNSUPPORTED_CARRIERS = {"\u200c": "language-sensitive non-joiner", "\u200d": "language-sensitive joiner", "\u00ad": "soft hyphen"}
+SECTIONS = {"summary", "skills", "experience", "projects", "education", "publications",
+            "teaching", "funding", "service", "awards", "references", "selected_work"}
 
 
 def _write(path, value):
@@ -72,12 +74,14 @@ def select_templates(family):
 
 
 def validate_profile(profile):
+    if set(profile) - {"family", "variant", "sections", "paper", "max_pages", "approved_by", "approved_at"}:
+        raise ValueError("Unsupported document profile constraint")
     options = select_templates(profile.get("family"))
     match = next((option for option in options if option["variant"] == profile.get("variant")), None)
     if not match:
         raise ValueError("Unknown structural variant")
     sections = profile.get("sections", match["sections"])
-    if not isinstance(sections, list) or len(set(sections)) != len(sections) or any(s not in match["sections"] for s in sections):
+    if not isinstance(sections, list) or len(set(sections)) != len(sections) or any(s not in SECTIONS for s in sections):
         raise ValueError("Sections must be unique supported section identifiers")
     if profile.get("paper", "a4") not in {"a4", "letter"}:
         raise ValueError("Paper must be a4 or letter")
@@ -97,7 +101,7 @@ def escape_tex(text):
 def _rich(value):
     if isinstance(value, str):
         return escape_tex(value)
-    if not isinstance(value, dict) or not isinstance(value.get("text"), str):
+    if not isinstance(value, dict) or set(value) - {"text", "emphasis"} or not isinstance(value.get("text"), str):
         raise ValueError("Bullet must be text or {text, emphasis}")
     text = value["text"]
     phrases = value.get("emphasis", [])
@@ -130,6 +134,23 @@ def _date_key(value):
 def validate_content(content):
     if not isinstance(content, dict) or not isinstance(content.get("name"), str) or not content["name"].strip():
         raise ValueError("A nonempty display name is required")
+    if set(content) - (SECTIONS | {"name", "contact", "section_labels", "dependencies"}):
+        raise ValueError("Unsupported visible content field; declare a supported section")
+    if set(content.get("section_labels", {})) - SECTIONS:
+        raise ValueError("Unknown section label")
+    for skill in content.get("skills", []):
+        if set(skill) - {"label", "items", "spoken_languages"}:
+            raise ValueError("Unsupported visible skill field")
+    for section in SECTIONS - {"summary", "skills"}:
+        if not isinstance(content.get(section, []), list):
+            raise ValueError("Entry sections must be lists")
+        for entry in content.get(section, []):
+            if not isinstance(entry, dict) or set(entry) - {"title", "organization", "start", "end", "description", "bullets", "url", "links"}:
+                raise ValueError("Unsupported visible entry field")
+            for link in _entry_links(entry):
+                if set(link) - {"label", "url"} or not isinstance(link.get("label"), str):
+                    raise ValueError("Proof links require label and URL")
+                _url(link["url"])
     forbidden = []
     for key, value in _strings(content):
         if any(ord(c) < 32 and c not in "\n\t" for c in value):
@@ -153,7 +174,7 @@ def validate_content(content):
         if "start" in entry and "end" in entry and _date_key(entry["start"]) > _date_key(entry["end"]):
             raise ValueError("Education starts after it ends")
     for contact in content.get("contact", []):
-        if not isinstance(contact, dict) or not isinstance(contact.get("text"), str):
+        if not isinstance(contact, dict) or set(contact) - {"text", "url"} or not isinstance(contact.get("text"), str):
             raise ValueError("Contacts require display text")
         if contact.get("url"):
             _url(contact["url"])
@@ -203,12 +224,22 @@ def _url(value):
     if not isinstance(value, str) or any(c in value for c in "{}\\\r\n\t "):
         raise ValueError("Unsafe contact URL")
     parts = urlsplit(value)
+    if parts.username or parts.password:
+        raise ValueError("Proof links must not include credentials")
     if parts.scheme not in {"https", "http", "mailto"} or (parts.scheme != "mailto" and not parts.netloc):
         raise ValueError("Contact URL must be http(s) or mailto")
     return value.replace("%", r"\%").replace("#", r"\#")
 
 
-def _entry(entry):
+def _entry_links(entry):
+    return entry.get("links", []) + ([{"label":"Work", "url":entry["url"]}] if entry.get("url") else [])
+
+
+def _proof_text(link):
+    return link["label"] + ": " + link["url"]
+
+
+def _entry(entry, active):
     heading = entry.get("title", "")
     if entry.get("organization"):
         heading += ", " + entry["organization"]
@@ -218,6 +249,9 @@ def _entry(entry):
     lines = [r"\noindent\textbf{" + escape_tex(heading) + r"}\par"] if heading else []
     if entry.get("description"):
         lines.append(_rich(entry["description"]) + r"\par")
+    for link in _entry_links(entry):
+        visible = escape_tex(_proof_text(link))
+        lines.append((r"\href{" + _url(link["url"]) + "}{" + visible + "}" if active else visible) + r"\par")
     if entry.get("bullets"):
         lines.append(r"\begin{itemize}")
         lines.extend(r"\item " + _rich(bullet) for bullet in entry["bullets"])
@@ -234,7 +268,7 @@ def canonical_visible(content, profile):
         value = content.get(section)
         if not value:
             continue
-        items.append(labels.get(section, section.title()))
+        items.append(labels.get(section, section.replace("_", " ").title()))
         if section == "summary":
             items.append(_visible(value))
         elif section == "skills":
@@ -251,6 +285,7 @@ def canonical_visible(content, profile):
                     items.append(heading)
                 if entry.get("description"):
                     items.append(_visible(entry["description"]))
+                items.extend(_proof_text(link) for link in _entry_links(entry))
                 items.extend(_visible(bullet) for bullet in entry.get("bullets", []))
     return "\n".join(items)
 
@@ -270,7 +305,7 @@ def _body(content, profile, active):
         value = content.get(section)
         if not value:
             continue
-        out.append(r"\section*{" + escape_tex(labels.get(section, section.title())) + "}")
+        out.append(r"\section*{" + escape_tex(labels.get(section, section.replace("_", " ").title())) + "}")
         if section == "summary":
             out.append(_rich(value) + r"\par")
         elif section == "skills":
@@ -279,7 +314,7 @@ def _body(content, profile, active):
                 items = "; ".join(escape_tex(item) for item in skill["items"])
                 out.append(r"\noindent " + phrase + (r"\textbf{" + items + "}" if skill.get("spoken_languages") else items) + r"\par")
         else:
-            out.extend(_entry(entry) for entry in value)
+            out.extend(_entry(entry, active) for entry in value)
     return "\n".join(out)
 
 
@@ -371,7 +406,8 @@ def inspect_pdf(path, inactive=False):
         xmp = root["/Metadata"].get_data().decode("utf-8", "replace")
         if re.search(r"c2pa|openai|chatgpt|claude|synthid|generative", xmp, re.I):
             metadata_flags.append("/Metadata")
-    return {"pages": len(reader.pages), "issues": sorted(set(issues)), "links": sorted(set(links)),
+    return {"pages": len(reader.pages), "sizes":[[float(page.mediabox.width), float(page.mediabox.height)] for page in reader.pages],
+            "issues": sorted(set(issues)), "links": sorted(set(links)),
             "metadata_flags": metadata_flags, "metadata": metadata,
             "text": "\n".join(page.extract_text() or "" for page in reader.pages)}
 
@@ -385,11 +421,13 @@ def _run(command, cwd):
 
 def _artifact_hashes(output):
     return {str(path.relative_to(output)): _hash(path) for path in sorted(output.rglob("*"))
-            if path.is_file() and path.name not in {"manifest.json", "reviews.json", "verification.json", "hygiene.json"}
+            if path.is_file() and path.name not in {"manifest.json", "reviews.json", "verification.json", "hygiene.json", "review-pack.json"}
             and path.suffix in {".json", ".tex", ".pdf", ".txt", ".png"}}
 
 
-def build_bundle(content, profile, output_dir):
+def build_bundle(content, profile, output_dir, workspace=None):
+    if workspace is not None:
+        content = bind_dependencies(workspace, content, profile)
     engine = shutil.which("xelatex")
     renderer = shutil.which("pdftoppm")
     if not engine or not renderer:
@@ -413,7 +451,12 @@ def build_bundle(content, profile, output_dir):
                 "tools": {"xelatex": _run([engine, "--version"], output).stdout.splitlines()[0],
                           "pypdf": pypdf.__version__, "pdftoppm": _run([renderer, "-v"], output).stderr.splitlines()[0]},
                 "artifact_hashes": _artifact_hashes(output)}
+    if workspace is not None:
+        from .workspace import load_workspace
+        manifest["workspace_id"] = load_workspace(workspace)["id"]
     _write(output / "manifest.json", manifest)
+    if workspace is not None:
+        register_document(workspace, output)
     report = verify_bundle(output)
     _write(output / "verification.json", report)
     return {"directory": str(output), "manifest": manifest, "verification": report}
@@ -443,11 +486,16 @@ def verify_bundle(bundle_dir):
             issues.append(mode + ": every-page render missing")
         if profile.get("max_pages") and report["pages"] > profile["max_pages"]:
             issues.append(mode + ": approved page budget exceeded")
+        size = (595.28, 841.89) if profile.get("paper", "a4") == "a4" else (612, 792)
+        if any(abs(w-size[0]) > 1 or abs(h-size[1]) > 1 for w,h in report["sizes"]):
+            issues.append(mode + ": approved paper size mismatch")
     if _normalize(reports["standard"]["text"]) != _normalize(reports["inactive"]["text"]):
         issues.append("paired visible wording mismatch")
     if reports["standard"]["pages"] != reports["inactive"]["pages"]:
         issues.append("paired page count mismatch")
     expected_links = sorted(set(c["url"] for c in content.get("contact", []) if c.get("url")))
+    expected_links = sorted(set(expected_links + [link["url"] for section in profile["sections"] if section not in {"summary", "skills"}
+        for entry in content.get(section, []) for link in _entry_links(entry)]))
     if reports["standard"]["links"] != expected_links:
         issues.append("standard links differ from canonical contacts")
     if reports["inactive"]["links"]:
@@ -504,11 +552,24 @@ def record_review(bundle_dir, reviewer, findings, pages, *, independent=False, r
     return record
 
 
-def finalize_bundle(bundle_dir):
+def finalize_bundle(bundle_dir, workspace=None):
     """Last workflow step: re-inspect final bytes and bind review/hygiene results."""
     output = Path(bundle_dir).resolve()
     report = verify_bundle(output)
     ready = report["mechanical_status"] == "passed" and report["editorial_visual_status"] == "passed"
+    manifest = json.loads((output/"manifest.json").read_text())
+    if manifest.get("workspace_id"):
+        from .workspace import load_workspace
+        if workspace is None or load_workspace(workspace)["id"] != manifest["workspace_id"]:
+            ready = False
+            report["issues"].append("Select the bound workspace to verify current document evidence")
+    if workspace is not None:
+        try:
+            verify_dependencies(workspace, json.loads((output/"canonical.json").read_text()),
+                                json.loads((output/"template-profile.json").read_text()))
+        except ValueError:
+            ready = False
+            report["issues"].append("Document evidence is missing or stale; rebuild from current confirmed facts")
     # No metadata is silently rewritten. Flagged metadata blocks readiness; a
     # deliberate content change must be rebuilt and reviewed as a new bundle.
     hygiene = {"deterministic_unicode": report["unicode_findings"], "pdf_metadata": "inspected",
@@ -519,6 +580,124 @@ def finalize_bundle(bundle_dir):
     return hygiene
 
 
-def build_previews(content, family, output_dir):
+def build_previews(content, family, output_dir, workspace=None):
     output = _external_output(output_dir)
-    return [build_bundle(copy.deepcopy(content), profile, output / profile["variant"]) for profile in select_templates(family)]
+    return [build_bundle(copy.deepcopy(content), profile, output / profile["variant"], workspace) for profile in select_templates(family)]
+
+
+def factual_fields(content, profile):
+    """Visible factual units; layout labels and emphasis are presentation metadata."""
+    fields = {"/name":content["name"]}
+    for i, entry in enumerate(content.get("contact", [])):
+        fields[f"/contact/{i}/text"] = entry["text"]
+        if entry.get("url"):
+            fields[f"/contact/{i}/url"] = entry["url"]
+    for section in validate_profile(profile)["sections"]:
+        value = content.get(section)
+        if not value:
+            continue
+        if section == "summary":
+            fields["/summary"] = _visible(value)
+        elif section == "skills":
+            for i, skill in enumerate(value):
+                for j, item in enumerate(skill["items"]):
+                    fields[f"/skills/{i}/items/{j}"] = item
+        else:
+            for i, entry in enumerate(value):
+                for key in ("title", "organization", "start", "end", "description", "url"):
+                    if entry.get(key):
+                        fields[f"/{section}/{i}/{key}"] = _visible(entry[key])
+                for j, bullet in enumerate(entry.get("bullets", [])):
+                    fields[f"/{section}/{i}/bullets/{j}"] = _visible(bullet)
+                for j, link in enumerate(entry.get("links", [])):
+                    fields[f"/{section}/{i}/links/{j}/url"] = link["url"]
+    return fields
+
+
+def _dependency(root, declaration, value):
+    from .records import _digest, list_records, load_record, validate_claim
+    dep = copy.deepcopy(declaration)
+    if dep.get("claim_id"):
+        claim = load_record(root, "claim", dep["claim_id"])
+        if dep.get("claim_version") != claim["version"]:
+            raise ValueError("Document claim version is stale")
+        validate_claim(root, claim)
+        facts = [{"id":key, "version":version} for key,version in claim["fact_versions"].items()]
+    elif dep.get("fact_id"):
+        fact = load_record(root, "fact", dep["fact_id"])
+        superseded = {item.get("supersedes") for item in list_records(root, "fact")}
+        if fact["id"] in superseded or fact["status"] not in {"candidate_confirmed", "document_supported"} or dep.get("fact_version") != fact["version"]:
+            raise ValueError("Document fact is stale or unsupported")
+        facts = [{"id":fact["id"], "version":fact["version"]}]
+    else:
+        raise ValueError("Each visible factual unit needs a claim or direct fact reference")
+    if "facts" in dep and dep["facts"] != facts:
+        raise ValueError("Document supporting fact versions changed")
+    if dep.get("value_hash", _digest(value)) != _digest(value):
+        raise ValueError("Document wording changed after its evidence selection")
+    return {**dep, "facts":facts, "value_hash":_digest(value)}
+
+
+def bind_dependencies(root, content, profile):
+    """Capture selected refs once; exact approved wording needs no extra logging."""
+    from .records import list_records
+    result = copy.deepcopy(content)
+    fields = factual_fields(result, profile)
+    supplied = result.get("dependencies", [])
+    declarations = {dep["pointer"]:dep for dep in supplied}
+    if len(declarations) != len(supplied) or set(declarations) - fields.keys():
+        raise ValueError("Dependency pointers must identify unique visible factual units")
+    facts, claims = list_records(root, "fact"), list_records(root, "claim")
+    dependencies = []
+    for pointer, value in fields.items():
+        declaration = declarations.get(pointer)
+        if declaration is None:
+            candidates = [{"claim_id":c["id"], "claim_version":c["version"]} for c in claims if c.get("safe_wording") == value and c.get("status") == "approved"]
+            candidates += [{"fact_id":f["id"], "fact_version":f["version"]} for f in facts if f.get("value") == value and f.get("status") in {"candidate_confirmed", "document_supported"}]
+            if not candidates:
+                raise ValueError("Missing factual provenance at " + pointer)
+            declaration = {"pointer":pointer, **candidates[0]}
+        dependencies.append(_dependency(root, declaration, value))
+    result["dependencies"] = dependencies
+    return result
+
+
+def verify_dependencies(root, content, profile):
+    fields = factual_fields(content, profile)
+    deps = content.get("dependencies", [])
+    if len(deps) != len(fields) or {dep["pointer"] for dep in deps} != set(fields):
+        raise ValueError("Production document requires complete field-level provenance")
+    for dep in deps:
+        if "value_hash" not in dep or "facts" not in dep:
+            raise ValueError("Document dependencies were not frozen during preparation")
+        _dependency(root, dep, fields[dep["pointer"]])
+    return True
+
+
+def register_document(root, directory):
+    from . import store
+    from .records import _digest
+    from .workspace import contained_path, load_workspace, locked_workspace
+    directory = contained_path(root, directory)
+    content = json.loads((directory/"canonical.json").read_text())
+    profile = json.loads((directory/"template-profile.json").read_text())
+    verify_dependencies(root, content, profile)
+    manifest = json.loads((directory/"manifest.json").read_text())
+    if manifest.get("workspace_id") != load_workspace(root)["id"]:
+        raise ValueError("Document manifest is not bound to this workspace")
+    value = {"id":_digest(str(directory)), "directory":str(directory), "workspace_id":load_workspace(root)["id"],
+             "profile":profile, "dependencies":content["dependencies"], "artifact_hashes":manifest["artifact_hashes"]}
+    with locked_workspace(root):
+        store.connection(root).execute("INSERT INTO documents VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload", (value["id"], str(directory), store.encode(value)))
+    return value
+
+
+def review_pack(bundle_dir):
+    output = Path(bundle_dir).resolve()
+    report = verify_bundle(output)
+    value = {"bundle":str(output), "artifact_hashes":report["artifact_hashes"],
+        "canonical":json.loads((output/"canonical.json").read_text()),
+        "pages":[{"id":f"{mode}:{page}", "render":str(output/f"{mode}-{page}.png")} for mode,count in report["pages"].items() for page in range(1,count+1)],
+        "dimensions":["factual", "vacancy_fit", "visual"], "status":"awaiting_independent_human_or_agent_review"}
+    _write(output/"review-pack.json", value)
+    return value

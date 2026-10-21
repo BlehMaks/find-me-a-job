@@ -27,7 +27,13 @@
           "experience",
           "projects",
           "education",
-          "publications"
+          "publications",
+          "teaching",
+          "funding",
+          "service",
+          "awards",
+          "references",
+          "selected_work"
         ]
       }
     },

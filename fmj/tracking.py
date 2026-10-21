@@ -165,9 +165,12 @@ def action(root, kind, owner, operation_id=None, due_at=None, deadline_source=No
         db = store.connection(root)
         key = action_id or uuid.uuid4().hex
         prior = db.execute("SELECT payload FROM actions WHERE id=?", (key,)).fetchone()
+        if prior and (json.loads(prior[0])["kind"] != kind or json.loads(prior[0])["operation_id"] != operation_id):
+            raise WorkspaceError("Action identity belongs to another obligation")
         if prior and json.loads(prior[0])["status"] == "completed" and status in {"pending", "blocked"}:
             raise WorkspaceError("Completed action cannot reopen without a separate contrary-evidence observation")
-        value = {**details, "id":key, "kind":kind, "owner":owner, "operation_id":operation_id,
+        previous = json.loads(prior[0]) if prior else {}
+        value = {**previous, **details, "id":key, "kind":kind, "owner":owner, "operation_id":operation_id,
             "due_at":due_at, "deadline_source":deadline_source, "time_zone":load_workspace(root)["time_zone"],
             "status":status, "evidence":evidence, "blocker":blocker, "updated_at":now()}
         _no_secrets(value)
@@ -230,10 +233,15 @@ def referral(root, opportunity_id, contacts=None, status="waiting", selected_con
 
 def query(root, kind, entity_id=None, limit=25):
     tables = {"companies":"companies", "opportunities":"opportunities", "documents":"documents",
-        "contacts":"contacts", "actions":"actions", "referrals":"referral_waits", "reviews":"campaign_reviews", "inbox":"inbox_requests"}
+        "contacts":"contacts", "actions":"actions", "referrals":"referral_waits", "reviews":"campaign_reviews", "inbox":"inbox_requests",
+        "operations":"operations", "events":"events", "attempts":"attempts", "applications":"applications"}
     if kind not in tables or type(limit) is not int or not 1 <= limit <= 500:
         raise WorkspaceError("Choose a supported registry and limit 1..500")
     table = tables[kind]
+    if kind == "applications":
+        return store.rows(root,"SELECT * FROM applications" + (" WHERE id=?" if entity_id else "") + " LIMIT ?", (entity_id,limit) if entity_id else (limit,))
+    if kind == "events":
+        return store.payloads(root,"events", " WHERE operation_id=? OR entity_id=? ORDER BY sequence DESC LIMIT ?", (entity_id,entity_id,limit))
     if entity_id:
         if kind in {"reviews", "referrals"}:
             field = "campaign_id" if kind == "reviews" else "opportunity_id"

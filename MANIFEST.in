@@ -98,11 +98,13 @@ include tests/test_application_state.py
 include tests/test_cli.py
 include tests/test_document_acceptance.py
 include tests/test_document_gates.py
+include tests/test_document_provenance.py
 include tests/test_feedback.py
 include tests/test_install_contract.py
 include tests/test_intake_acceptance.py
 include tests/test_interview_handoffs.py
 include tests/test_managed_isolation.py
+include tests/test_observations.py
 include tests/test_public_tree.py
 include tests/test_records.py
 include tests/test_store.py

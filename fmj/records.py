@@ -205,18 +205,23 @@ def read_events(root):
 
 
 def append_event(root, event_type, actor="owner", entity_id=None, operation_id=None,
-                 observed=True, evidence=None, data=None, occurred_at=None):
+                 observed=True, evidence=None, data=None, occurred_at=None, event_id=None):
     from . import store
     if occurred_at and datetime.fromisoformat(occurred_at).tzinfo is None:
         raise RecordError("Event occurrence time must include timezone")
     with locked_workspace(root):
         config = load_workspace(root)
+        if event_id:
+            identifier(event_id)
+            existing = store.payloads(root, "events", " WHERE id=?", (event_id,))
+            if existing:
+                return existing[0]
         previous = store.connection(root).execute("SELECT sequence,payload FROM events ORDER BY sequence DESC LIMIT 1").fetchone()
         head = json.loads(previous["payload"]) if previous else None
         if head and _digest({k:v for k,v in head.items() if k != "hash"}) != head["hash"]:
             raise RecordError("Event chain head is corrupted")
         timestamp = now()
-        event = {"schema_version": 1, "id": uuid.uuid4().hex, "workspace_id": config["id"],
+        event = {"schema_version": 1, "id": event_id or uuid.uuid4().hex, "workspace_id": config["id"],
                  "type": event_type, "timestamp": timestamp, "observed_at":timestamp,
                  "occurred_at":occurred_at, "time_zone": config["time_zone"],
                  "actor": actor, "operation_id": operation_id, "observed": observed,
