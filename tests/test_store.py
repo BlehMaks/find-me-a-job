@@ -137,10 +137,12 @@ class StoreTests(unittest.TestCase):
 
     def test_malformed_same_workspace_backup_cannot_replace_live_storage(self):
         import sqlite3
+        from contextlib import closing
         snapshot=self.root/'runtime'/'malformed.sqlite3'
-        with sqlite3.connect(snapshot) as db:
+        with closing(sqlite3.connect(snapshot)) as db:
             db.executescript('CREATE TABLE metadata(key,value);CREATE TABLE operations(id,stage,payload);')
             db.execute('INSERT INTO metadata VALUES(?,?)',('workspace_id',load_workspace(self.root)['id']))
+            db.commit()
         with self.assertRaisesRegex(WorkspaceError,'schema'):
             store.restore(self.root,snapshot)
         self.assertEqual(0,tracking.report(self.root)['applications'])
