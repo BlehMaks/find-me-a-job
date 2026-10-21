@@ -57,21 +57,14 @@
 
     <section id="install" class="chapter setup page" aria-labelledby="install-heading">
       <div class="chapter-index"><span class="label">03 / THE SETUP</span><p>Start on<br>your computer.</p><a class="small-link" href="https://github.com/BlehMaks/find-me-a-job">Repository ↗</a></div>
-      <div class="chapter-body"><h2 id="install-heading">Open a folder.<br>Start a conversation.</h2><p class="intro">Use the desktop app. The agent can handle the environment setup after you review the plan.</p>
+      <div class="chapter-body"><h2 id="install-heading">One setup app.<br>Your own workspace.</h2><p class="intro">Choose your agent. Review the setup. Keep your experience and documents in a separate private folder.</p>
         <ol class="setup-list">
-          <li><span class="row-no">01</span><div><h3>Install your agent</h3><p>Choose <a href="https://learn.chatgpt.com/docs/app">Codex / ChatGPT desktop</a> or <a href="https://code.claude.com/docs/en/desktop-quickstart">Claude Desktop</a> and sign in. For sustained campaigns, we recommend a paid plan. Paid plans also have limits.</p></div></li>
-          <li><span class="row-no">02</span><div><h3>Clone the repository</h3><p>In <a href="https://desktop.github.com/download/">GitHub Desktop</a>, choose File → Clone repository → URL. Paste this address and choose a new local folder:</p><code class="repo-address">https://github.com/BlehMaks/find-me-a-job.git</code><p class="small">The repository is currently private. Your GitHub account needs access.</p></div></li>
-          <li><span class="row-no">03</span><div><h3>Open it in the app</h3><p>In Codex, add or open the cloned project folder. In Claude, choose Code → Local → Open folder… and select the clone.</p></div></li>
-          <li><span class="row-no">04</span><div><h3>Give the agent its first brief</h3><p>Paste this into a new local conversation:</p><div class="starter"><span class="label">YOUR FIRST MESSAGE</span><pre>Read AGENTS.md and the selected adapter.
-Help me set up Find Me a Job in desktop mode.
-Confirm my account, plan and usage budget.
-Keep personal data in a separate private workspace
-outside this repository. Inspect the installer and
-show the plan; configure the runtime after my permission.
-Request private-folder access when needed.
-Begin experience intake after setup.
-Do not start applications yet.</pre></div><p class="small">Grant the private folder, browser and mailbox permissions separately when requested. Personal files belong outside the clone. Setup never buys a subscription or changes billing.</p></div></li>
+          <li><span class="row-no">01</span><div><h3>Get the installer</h3><p>Download FindMeAJob-Setup for macOS or Windows from a successful <a href="https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml">private installer build</a>. Your GitHub account needs project access. Extract the download, then open the DMG on Mac or the EXE on Windows.</p><p class="small">Pilot builds are unsigned. The setup app includes Python and its interface; no terminal is needed to open it. A public release is still to come.</p></div></li>
+          <li><span class="row-no">02</span><div><h3>Review what gets installed</h3><p>Choose <a href="https://learn.chatgpt.com/docs/app">Codex / ChatGPT desktop</a> or <a href="https://code.claude.com/docs/en/desktop-quickstart">Claude Desktop</a>. The wizard checks existing software, clones the source and prepares the private environment. Missing software installation needs your permission; some native steps need your confirmation.</p></div></li>
+          <li><span class="row-no">03</span><div><h3>Open your project</h3><p>After PDF checks pass, use Copy first message. In Codex open the source folder shown by the wizard. In Claude, choose Code → Local → Open folder… and select it. Paste the message and grant access to the separate private folder.</p></div></li>
+          <li><span class="row-no">04</span><div><h3>Confirm access. Begin with your experience.</h3><p>Sign in to your agent and confirm its plan and budget. We recommend paid access for sustained campaigns; paid plans also have limits. Browser and mailbox permissions are checked separately. The first conversation builds your experience base, before applications begin.</p><p class="small">Setup never buys a subscription or changes billing. Feedback is an explicit choice; signing in to GitHub does not send anything.</p></div></li>
         </ol>
+        <details class="technical"><summary>Prefer to clone manually?</summary><p>Use <a href="https://desktop.github.com/download/">GitHub Desktop</a>: File → Clone repository → URL, then paste:</p><code class="repo-address">https://github.com/BlehMaks/find-me-a-job.git</code><p>Open that folder in your desktop agent. Ask it to read AGENTS.md, inspect the installer and prepare a separate private workspace after reviewing the plan. GitHub Desktop is optional; GitHub CLI is a separate tool.</p></details>
         <details class="technical"><summary>Prefer the CLI?</summary><p>Select it explicitly. The installer prepares the environment and private workspace; the run command passes the correct context to your agent.</p><pre>sh install/install.sh --interface cli \
   --agent codex --workspace "$HOME/career-workspace" --yes
 "$HOME/career-workspace.venv/bin/fmj" run \

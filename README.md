@@ -4,17 +4,18 @@ A local workspace for a career-search agent: turn experience into confirmed know
 
 The interface is your existing Codex or Claude Code agent. There is no hosted account or web dashboard. An optional operator-managed setup adds bound client questions and pause/resume through Telegram.
 
-## Start in a desktop app (recommended)
+## Start with the desktop installer (recommended)
 
-1. Install [Codex / the current ChatGPT desktop app](https://learn.chatgpt.com/docs/app) or [Claude Desktop](https://code.claude.com/docs/en/desktop-quickstart). In Claude use the **Code** tab. Existing installations can be reused; the desktop route does not require the agent CLI.
-2. Clone this repository locally. Without a terminal, install [GitHub Desktop](https://desktop.github.com/download/), choose **File → Clone repository → URL**, paste `https://github.com/BlehMaks/find-me-a-job.git` and select a local folder. While the repository is private, your GitHub account needs access. Existing folders are not overwritten.
-3. In Codex add/open that local project folder. In Claude Code choose the **Local** environment and **Open folder…**. Choose the cloned repository, then paste:
+1. Download the native **FindMeAJob-Setup** artifact for your operating system from the [private installer builds](https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml). Select a successful run, then its macOS or Windows artifact. GitHub access is required while the project is private. These pilot builds are unsigned; no public release is available yet.
+2. On macOS open the `.dmg` and launch the app inside; on Windows launch the `.exe`. The wizard includes Python and Tk: no terminal, GitHub Desktop or preinstalled Python is needed to open it.
+3. Select Codex or Claude, keep **desktop**, and choose separate source/private folders. Review the detected tools and setup plan. Allow missing software installation if wanted; native package managers may request your confirmation. GitHub authorization is a separate button. Existing folders and settings are checked before reuse.
+4. After runtime and PDF checks pass, use **Copy first message**. Open the displayed source folder in your agent: add/open the local project in Codex, or choose **Code → Local → Open folder…** in Claude. Paste the message and grant access to the separate private folder when requested.
 
-> Read AGENTS.md and the selected adapter. Help me set up Find Me a Job using the desktop interface. First confirm my agent account, plan and usage budget. Use a separate private workspace outside this repository for all personal data and output. Inspect the installer, show me the setup plan, and configure the local runtime after my permission. Ask for access to that private folder when needed. Begin experience intake after setup; do not start applications yet.
+The wizard can install Git, GitHub CLI, Python and document tools, clone the repository and prepare the private runtime. GitHub Desktop is optional and does not supply GitHub CLI. Feedback is a separate explicit choice; enabling it prepares missing local contribution settings but does not send any issue or PR. Sign-in alone does not enable feedback.
 
-The agent can prepare the Python environment, document dependencies and private workspace using the reviewed installer. It asks you for missing folder/browser/mail permissions through the host's supported flow. Grant access to the source folder and the separate private workspace; opening the repository alone does not grant every capability. Do not move your personal materials into the clone to work around a denied permission.
+For sustained application campaigns we recommend a paid agent plan. Free allowances may be useful for exploration but are not a reliable campaign budget; paid plans also have limits. Installing an app proves neither subscription nor available quota. Confirm these in your account. Nothing buys a subscription, signs in to the agent or changes billing automatically. Folder access, browser control and mailbox permissions need separate checks.
 
-For sustained application campaigns we recommend a paid agent plan. Free allowances may be useful for exploration but are not a reliable campaign budget; paid plans also have limits. Installing an app proves neither subscription nor available quota. Confirm these in your account. Nothing buys a subscription, signs in or changes billing automatically.
+For a manual graphical fallback, install [Codex / ChatGPT desktop](https://learn.chatgpt.com/docs/app) or [Claude Desktop](https://code.claude.com/docs/en/desktop-quickstart), then clone with [GitHub Desktop](https://desktop.github.com/download/), **File → Clone repository → URL**. Open that folder in the agent and ask it to read `AGENTS.md`, inspect the installer and prepare a separate private workspace after reviewing its plan. Begin experience intake before any campaign actions. See [installation](docs/install.md) for complete instructions and native build limitations.
 
 ## Installer and optional CLI route
 
