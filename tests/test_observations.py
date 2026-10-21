@@ -69,5 +69,15 @@ class ObservationTests(unittest.TestCase):
         tracking.contact(self.root,recipient['channel'],recipient['address'],refused=True)
         with self.assertRaises(campaign.CampaignBlocked):prepare('inbound-3','Another answer')
 
+    def test_a_second_distinct_assessment_is_not_hidden_by_first_completion(self):
+        op=campaign.create_operation(self.root,self.opp,'campaign')
+        campaign.observe_lifecycle(self.root,op['id'],'assessment_completed','Candidate completed first assessment')
+        campaign.observe_lifecycle(self.root,op['id'],'assessment_assigned','Employer assigned a new assessment',assessment_id='round-two')
+        actions=tracking.query(self.root,'actions')
+        self.assertTrue(any(a['kind']=='assessment' and a['status']=='completed' for a in actions))
+        self.assertTrue(any(a['assessment_id']=='round-two' and a['status']=='pending' for a in actions))
+        campaign.observe_lifecycle(self.root,op['id'],'assessment_link_expired','First assessment link expired')
+        self.assertTrue(any(a['assessment_id']=='round-two' and a['status']=='pending' for a in tracking.query(self.root,'actions')))
+
 
 if __name__=='__main__':unittest.main()

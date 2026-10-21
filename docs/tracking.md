@@ -43,6 +43,8 @@ evidence. `campaign observe` accepts lifecycle and evidence, optional occurred_a
 due_at/deadline_source and owner. Runtime fills observation time and creates
 the associated next action. Completion, employer receipt and evaluation of an
 assessment are separate. Missing mail or an expired link cannot undo completion.
+Use a stable `assessment_id` when a process has multiple tests/rounds; completing
+one test must not hide a different newly assigned assessment.
 
 ## Referral before application
 

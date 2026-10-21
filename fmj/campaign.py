@@ -673,14 +673,16 @@ def verify_operation_documents(root, intent):
 
 
 def observe_lifecycle(root, operation_id, lifecycle, evidence, actor="owner", occurred_at=None,
-                      due_at=None, deadline_source=None, owner=None):
+                      due_at=None, deadline_source=None, owner=None, assessment_id=None):
     if lifecycle not in {"reply", "interview", "interview_held", "offer", "rejected", "assessment_assigned",
             "assessment_completed", "assessment_received", "assessment_evaluated", "assessment_link_expired",
             "host_interest", "shortlist", "funding_awarded"} or not evidence:
         raise CampaignBlocked("Record observed replies/invitations/outcomes; human decisions need a handoff")
     with locked_workspace(root):
         item = load_operation(root, operation_id)
-        event_id = _digest([operation_id,lifecycle,evidence,occurred_at,due_at])
+        if assessment_id is not None:
+            identifier(assessment_id)
+        event_id = _digest([operation_id,lifecycle,evidence,occurred_at,due_at]+([assessment_id] if assessment_id else []))
         if store.rows(root,"SELECT id FROM events WHERE id=?",(event_id,)):
             return item
         milestones = set(item.get("milestones", []))
@@ -694,24 +696,31 @@ def observe_lifecycle(root, operation_id, lifecycle, evidence, actor="owner", oc
             item["terminal_outcome"] = lifecycle
         highest = next((state for state in ("offer", "interview_held", "interview", "shortlist", "host_interest", "reply") if state in milestones or lifecycle == state), item["lifecycle"])
         item["lifecycle"] = item.get("terminal_outcome", highest)
+        legacy_completed=not item.get('assessments') and 'assessment_completed' in milestones
+        assessment=item.setdefault('assessments',{}).setdefault(assessment_id or 'default',{}) if lifecycle.startswith('assessment_') else {}
+        if lifecycle in {'assessment_completed','assessment_received','assessment_evaluated'}:
+            assessment[lifecycle.removeprefix('assessment_')]=True
+        if assessment_id is None and legacy_completed:
+            assessment['completed']=True
         _save_operation(root, item)
         config = load_workspace(root)
         responsible = owner or config["owner"]
-        assessment_id = _digest([operation_id,"assessment"])
+        assessment_action_id = _digest([operation_id,"assessment",assessment_id] if assessment_id else [operation_id,"assessment"])
+        receipt_action_id = _digest([operation_id,'assessment_receipt',assessment_id] if assessment_id else [operation_id,'assessment_receipt'])
         if lifecycle == "assessment_completed":
-            tracking.action(root,"assessment",responsible,operation_id,action_id=assessment_id,status="completed",evidence=evidence)
+            tracking.action(root,"assessment",responsible,operation_id,action_id=assessment_action_id,status="completed",evidence=evidence,assessment_id=assessment_id)
         elif lifecycle == "assessment_assigned":
-            if "assessment_completed" not in milestones:
-                tracking.action(root,"assessment",responsible,operation_id,due_at,deadline_source,evidence,action_id=assessment_id)
-        elif lifecycle == "assessment_link_expired" and "assessment_completed" in milestones:
-            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=_digest([operation_id,"assessment_receipt"]),evidence=evidence)
+            if not assessment.get('completed'):
+                tracking.action(root,"assessment",responsible,operation_id,due_at,deadline_source,evidence,action_id=assessment_action_id,assessment_id=assessment_id)
+        elif lifecycle == "assessment_link_expired" and assessment.get('completed'):
+            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=receipt_action_id,evidence=evidence,assessment_id=assessment_id)
         elif lifecycle == "assessment_received":
-            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=_digest([operation_id,"assessment_receipt"]),status="completed",evidence=evidence)
+            tracking.action(root,"verify_assessment_receipt",responsible,operation_id,action_id=receipt_action_id,status="completed",evidence=evidence,assessment_id=assessment_id)
         elif lifecycle in {"reply", "interview", "host_interest", "shortlist"}:
             tracking.action(root,"review_invitation" if lifecycle == "interview" else "review_reply",responsible,
                 operation_id,due_at,deadline_source,evidence,action_id=_digest([event_id,"next_action"]))
         append_event(root, "lifecycle_observed", actor=actor, operation_id=operation_id,
-                     evidence=evidence, data={"lifecycle":lifecycle},occurred_at=occurred_at,event_id=event_id)
+                     evidence=evidence, data={"lifecycle":lifecycle,'assessment_id':assessment_id},occurred_at=occurred_at,event_id=event_id)
         return deepcopy(item)
 
 
