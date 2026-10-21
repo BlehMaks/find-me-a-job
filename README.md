@@ -7,7 +7,7 @@ The interface is your existing Codex or Claude Code agent. There is no hosted ac
 ## Start with the desktop installer (recommended)
 
 1. Download the native **FindMeAJob-Setup** artifact for your operating system from the [private installer builds](https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml). Select a successful run, then its macOS or Windows artifact. GitHub access is required while the project is private. These pilot builds are unsigned; no public release is available yet.
-2. On macOS open the `.dmg` and launch the app inside; on Windows launch the `.exe`. The wizard includes Python and Tk: no terminal, GitHub Desktop or preinstalled Python is needed to open it.
+2. On macOS open the `.dmg`, drag **Find Me a Job Setup** into **Applications**, then open it from Applications; on Windows launch the `.exe`. The wizard includes Python and Tk: no terminal, GitHub Desktop or preinstalled Python is needed to open it.
 3. Select Codex or Claude, keep **desktop**, and choose separate source/private folders. Review the detected tools and setup plan. Allow missing software installation if wanted; native package managers may request your confirmation. GitHub authorization is a separate button. Existing folders and settings are checked before reuse.
 4. After runtime and PDF checks pass, use **Copy first message**. Open the displayed source folder in your agent: add/open the local project in Codex, or choose **Code → Local → Open folder…** in Claude. Paste the message and grant access to the separate private folder when requested.
 

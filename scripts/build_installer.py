@@ -83,6 +83,12 @@ def main():
         parser.error('Commit the exact reviewed source allowlist before building')
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
     output.mkdir(parents=True, mode=0o700)
+    if sys.platform == 'darwin':
+        for package, version in (('dmgbuild', '1.6.7'), ('Pillow', '12.1.1')):
+            if importlib.metadata.version(package) != version:
+                parser.error('Install the pinned Mac build dependency: ' + package + '==' + version)
+        from macos_dmg import artwork
+        icon = artwork(output / 'artwork')
     with tempfile.TemporaryDirectory(prefix='fmj-native-build-') as temporary:
         build = Path(temporary)
         source = build / 'source'
@@ -99,6 +105,8 @@ def main():
                    '--specpath', str(build), '--paths', str(source), '--add-data', str(notices) + os.pathsep + 'licenses',
                    '--add-data', str(source / 'THIRD_PARTY_NOTICES.md') + os.pathsep + '.',
                    '--osx-bundle-identifier', 'org.findmeajob.setup']
+        if sys.platform == 'darwin':
+            command.extend(['--icon', str(icon)])
         command.append('--onedir' if sys.platform == 'darwin' else '--onefile')
         command.append(str(source / 'install/wizard.py'))
         subprocess.run(command, cwd=source, check=True)
@@ -114,13 +122,15 @@ def main():
     if smoke.get('status') != 'passed' or not smoke.get('bundled') or smoke.get('installs_executed'):
         raise RuntimeError('Bundled Python/Tk launch did not pass')
     artifact = executable
+    dmg_smoke = None
     if sys.platform == 'darwin':
         artifact = output / (NAME + '-macos-' + platform.machine() + '.dmg')
-        subprocess.run(['hdiutil', 'create', '-volname', 'Find Me a Job Setup', '-srcfolder',
-                        str(output / (NAME + '.app')), '-format', 'UDZO', str(artifact)], check=True)
+        from macos_dmg import package, verify
+        package(artifact, output / (NAME + '.app'), ROOT / 'install/macos-guide.html', output / 'artwork')
+        dmg_smoke = verify(artifact)
     manifest = {'revision': revision, 'platform': platform.platform(), 'architecture': platform.machine(),
                 'artifact': artifact.name, 'sha256': hashlib.sha256(artifact.read_bytes()).hexdigest(),
-                'bundled_python_tk_smoke': smoke, 'signing': 'private pilot; no Developer ID/notarization or Windows publisher certificate',
+                'bundled_python_tk_smoke': smoke, 'dmg_smoke': dmg_smoke, 'signing': 'private pilot; no Developer ID/notarization or Windows publisher certificate',
                 'publication': 'not performed'}
     (output / 'installer-manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     print('Native artifact built and launched with bundled Python/Tk. No publication or account login performed.')
