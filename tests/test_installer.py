@@ -42,7 +42,7 @@ class InstallerTests(unittest.TestCase):
         with self.assertRaises(Handoff):
             self.options.validate()
 
-    @unittest.skipIf(os.name == 'nt', 'Windows junction behavior exercised in native installer checks')
+    @unittest.skipIf(os.name == 'nt', 'POSIX symlink case; Windows junction handling is not exercised here')
     def test_symlink_parent_rejected(self):
         link = self.base / 'link'
         link.symlink_to(self.base, target_is_directory=True)
@@ -96,7 +96,7 @@ class InstallerTests(unittest.TestCase):
             runner.run([sys.executable, '-c', 'raise SystemExit(0)'])
 
     def test_frozen_environment_does_not_poison_external_python(self):
-        env = {'PATH': '/bundle/bin' + os.pathsep + '/usr/bin', 'LD_LIBRARY_PATH': '/bundle',
+        env = {'USERPROFILE': str(Path.home()), 'HOME': str(Path.home()), 'PATH': '/bundle/bin' + os.pathsep + '/usr/bin', 'LD_LIBRARY_PATH': '/bundle',
                'LD_LIBRARY_PATH_ORIG': '/system', 'PYTHONHOME': '/bundle', 'TCL_LIBRARY': '/bundle', '_PYI_ARCHIVE_FILE': 'private'}
         with patch.dict(os.environ, env, clear=True), patch.object(sys, '_MEIPASS', '/bundle', create=True), patch.object(sys, 'frozen', True, create=True):
             result = external_environment()
