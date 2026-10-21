@@ -279,7 +279,7 @@ class PowerShellInstallContract(unittest.TestCase):
     return [pscustomobject]@{ Name = $Name }
 }
 & ''' + quote(ROOT / 'install/install.ps1') + ' -Check -Agent codex -Interface ' + interface +
-                                  ' -DesktopApp ' + quote(app), encoding='utf-8')
+                                  ' -DesktopApp ' + quote(app) + '\nexit $LASTEXITCODE\n', encoding='utf-8')
                 result = subprocess.run(['pwsh', '-NoProfile', '-File', str(script)], capture_output=True, text=True)
                 self.assertEqual(result.returncode, 0 if interface == 'desktop' else 2, result.stderr)
                 self.assertIn('desktop: present', result.stdout)
