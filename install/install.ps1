@@ -3,6 +3,8 @@
 param(
     [string]$Workspace = '',
     [ValidateSet('codex','claude')][string]$Agent,
+    [ValidateSet('desktop','cli')][string]$Interface = 'desktop',
+    [string]$DesktopApp = '',
     [string]$Venv = '',
     [string]$Python = 'python',
     [ValidateSet('self-hosted','managed')][string]$Mode = 'self-hosted',
@@ -23,11 +25,32 @@ function Invoke-Checked([string]$Command, [string[]]$Arguments) {
 function Refresh-Path {
     $env:PATH = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:PATH
 }
+function Find-Desktop {
+    if ($DesktopApp) {
+        if (Test-Path -LiteralPath $DesktopApp) { return $DesktopApp }; return $null
+    }
+    $PackageNames = if ($Agent -eq 'codex') { @('OpenAI.Codex','OpenAI.ChatGPT-Desktop') } else { @('Anthropic.Claude') }
+    if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
+        foreach ($Name in $PackageNames) {
+            $Package = Get-AppxPackage -Name $Name | Select-Object -First 1
+            if ($Package) { return $Package.InstallLocation }
+        }
+    }
+    if ($Agent -eq 'claude') {
+        foreach ($Candidate in @("$env:LOCALAPPDATA\AnthropicClaude\claude.exe", "$env:LOCALAPPDATA\Programs\Claude\Claude.exe")) {
+            if (Test-Path -LiteralPath $Candidate) { return $Candidate }
+        }
+    }
+    return $null
+}
 if ($Offline -and $InstallDependencies) { throw 'Offline cannot install external dependencies.' }
 if ($Feedback -ne 'unset' -and -not $Upstream) { throw 'A feedback choice requires -Upstream OWNER/REPO.' }
 if ($Workspace -and -not $Venv) { $Venv = "$Workspace.venv" }
 Write-Output "Source: $Source"
 Write-Output "Plan: agent=$Agent; workspace=$Workspace; environment=$Venv; feedback=$Feedback"
+Write-Output "Interface: $Interface"
+Write-Output 'Account/login/plan/quota: unknown. Confirm in the app; installation does not prove service access.'
+Write-Output 'For sustained campaigns choose a paid agent plan or explicitly budgeted API access. Free allowances are not a reliable campaign budget; paid plans also have limits.'
 Write-Output 'Native Windows and WSL are separate targets. Existing configuration is preserved.'
 if ($DryRun) { exit 0 }
 if ($Check) {
@@ -38,7 +61,10 @@ if ($Check) {
     }
     if ($Agent) {
         if (Get-Command $Agent -ErrorAction SilentlyContinue) { Write-Output "${Agent}: present" }
-        else { Write-Output "${Agent}: missing"; $Missing = $true }
+        else { Write-Output "${Agent}: missing"; if ($Interface -eq 'cli') { $Missing = $true } }
+        $DetectedDesktop = Find-Desktop
+        if ($DetectedDesktop) { Write-Output "desktop: present ($DetectedDesktop; coding features unverified)" }
+        else { Write-Output 'desktop: not detected (use -DesktopApp for a custom location)'; if ($Interface -eq 'desktop') { $Missing = $true } }
     }
     if ($Feedback -eq 'enabled' -and -not (Get-Command gh -ErrorAction SilentlyContinue)) {
         Write-Output 'gh: missing (feedback enabled)'; $Missing = $true
@@ -102,7 +128,19 @@ if ($InstallDependencies) {
 }
 $Temporary = $null
 try {
-    if (-not (Get-Command $Agent -ErrorAction SilentlyContinue)) {
+    if ($Interface -eq 'desktop' -and -not (Find-Desktop)) {
+        $AppUrl = if ($Agent -eq 'codex') { 'https://learn.chatgpt.com/docs/windows/windows-app' } else { 'https://code.claude.com/docs/en/desktop-quickstart' }
+        if (-not $InstallDependencies -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw "Desktop application not detected. Install from $AppUrl and rerun, or use -InstallDependencies with WinGet. CLI is separate: -Interface cli."
+        }
+        if ($Agent -eq 'codex') {
+            Invoke-Checked 'winget' @('install','--exact','--id','9PLM9XGG6VKS','--source','msstore','--interactive')
+        } else {
+            Invoke-Checked 'winget' @('install','--exact','--id','Anthropic.Claude','--source','winget','--interactive')
+        }
+        if (-not (Find-Desktop)) { throw "App installation not detected. Open the official app, or supply -DesktopApp, then rerun: $AppUrl" }
+    }
+    if ($Interface -eq 'cli' -and -not (Get-Command $Agent -ErrorAction SilentlyContinue)) {
         if (-not $InstallDependencies) { throw 'Selected agent missing. Install officially or rerun with -InstallDependencies.' }
         $Temporary = Join-Path ([IO.Path]::GetTempPath()) ('fmj-bootstrap-' + [guid]::NewGuid().ToString('N'))
         New-Item -ItemType Directory -Path $Temporary | Out-Null
@@ -132,7 +170,8 @@ try {
     $DoctorArguments = @('-m','fmj','doctor','--workspace',$Workspace)
     if ($Smoke) { $DoctorArguments += '--smoke' }
     Invoke-Checked $EnvPython $DoctorArguments
-    Write-Output "Next: & '$EnvPython' -m fmj run --workspace '$Workspace'"
+    Invoke-Checked $EnvPython @('-m','fmj.setup','--workspace',$Workspace,'--source',$Source,'--interface',$Interface)
+    if ($Interface -eq 'cli') { Write-Output "Next: & '$EnvPython' -m fmj run --workspace '$Workspace'" }
     Write-Output 'Sign in yourself. Review Windows ACLs, scoped permissions and browser/upload/mail capabilities.'
     if (-not (Get-Command xelatex -ErrorAction SilentlyContinue)) {
         Write-Output 'TeX handoff: install official TeX Live from https://tug.org/texlive/windows.html and rerun doctor.'

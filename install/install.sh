@@ -6,11 +6,14 @@ umask 077
 SOURCE=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd -P)
 WORKSPACE='' AGENT='' VENV='' PYTHON='python3' MODE='self-hosted'
 OPERATOR='' LANGUAGE='en' TIMEZONE='UTC' FEEDBACK='unset' UPSTREAM=''
+INTERFACE='desktop' DESKTOP_APP=''
 YES=0 DEPS=0 OFFLINE=0 DRY=0 CHECK=0 SMOKE=0
 usage() {
     cat <<'EOF'
 Find Me a Job: inspectable local bootstrap
   sh install/install.sh --workspace PATH --agent codex|claude [options]
+  --interface desktop|cli   Desktop by default; CLI is an explicit alternative
+  --desktop-app PATH        Existing desktop application in a custom location
   --yes                    Create private environment/workspace after reviewing plan
   --install-dependencies   Also install missing official agent/macOS dependencies
   --venv PATH              External Python environment (default: WORKSPACE.venv)
@@ -29,13 +32,14 @@ EOF
 fail() { printf '%s\n' "$*" >&2; exit 2; }
 while [ "$#" -gt 0 ]; do
     case "$1" in
-        --workspace|--agent|--venv|--python|--mode|--operator|--language|--timezone|--feedback|--upstream)
+        --workspace|--agent|--venv|--python|--mode|--operator|--language|--timezone|--feedback|--upstream|--interface|--desktop-app)
             [ "$#" -ge 2 ] && [ -n "$2" ] || fail "Missing value for $1"
             case "$1" in
                 --workspace) WORKSPACE=$2;; --agent) AGENT=$2;; --venv) VENV=$2;;
                 --python) PYTHON=$2;; --mode) MODE=$2;; --operator) OPERATOR=$2;;
                 --language) LANGUAGE=$2;; --timezone) TIMEZONE=$2;;
                 --feedback) FEEDBACK=$2;; --upstream) UPSTREAM=$2;;
+                --interface) INTERFACE=$2;; --desktop-app) DESKTOP_APP=$2;;
             esac
             shift 2;;
         --yes) YES=1; shift;; --install-dependencies) DEPS=1; shift;;
@@ -44,14 +48,29 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 case "$AGENT" in ''|codex|claude) ;; *) fail 'Choose --agent codex or claude';; esac
+case "$INTERFACE" in desktop|cli) ;; *) fail 'Choose --interface desktop or cli';; esac
 case "$MODE" in self-hosted|managed) ;; *) fail 'Invalid mode';; esac
 case "$FEEDBACK" in enabled|disabled|unset) ;; *) fail 'Invalid feedback choice';; esac
 [ "$FEEDBACK" = unset ] || [ -n "$UPSTREAM" ] || fail 'A feedback choice requires --upstream OWNER/REPO'
 [ "$OFFLINE" -eq 0 ] || [ "$DEPS" -eq 0 ] || fail '--offline cannot install external dependencies'
 [ -n "$WORKSPACE" ] && VENV=${VENV:-"$WORKSPACE.venv"}
 PLATFORM=$(uname -s)
+find_desktop() {
+    if [ -n "$DESKTOP_APP" ]; then [ -e "$DESKTOP_APP" ]; return; fi
+    [ "$PLATFORM" = Darwin ] || return 1
+    if [ "$AGENT" = codex ]; then APP_NAMES='Codex ChatGPT'; else APP_NAMES='Claude'; fi
+    for app_name in $APP_NAMES; do
+        for app_root in /Applications "$HOME/Applications"; do
+            if [ -d "$app_root/$app_name.app" ]; then DESKTOP_APP="$app_root/$app_name.app"; return 0; fi
+        done
+    done
+    return 1
+}
 printf 'Source: %s\nPlatform: %s (WSL and native Windows are separate)\n' "$SOURCE" "$PLATFORM"
 printf 'Plan: agent=%s; workspace=%s; environment=%s; feedback=%s\n' "${AGENT:-not selected}" "${WORKSPACE:-not selected}" "${VENV:-not selected}" "$FEEDBACK"
+printf 'Interface: %s\n' "$INTERFACE"
+printf '%s\n' 'Account/login/plan/quota: unknown. Confirm in the app; installed software does not prove service access.'
+printf '%s\n' 'For sustained campaigns, choose a paid agent plan or explicitly budgeted API access. Free allowances are not a reliable campaign budget; paid plans also have limits.'
 printf '%s\n' 'Preserve existing agent configuration. Browser/upload/mail require separate interactive checks.'
 if [ "$DRY" -eq 1 ]; then exit 0; fi
 if [ "$CHECK" -eq 1 ]; then
@@ -62,7 +81,9 @@ if [ "$CHECK" -eq 1 ]; then
     done
     if [ -n "$AGENT" ]; then
         if command -v "$AGENT" >/dev/null 2>&1; then printf '%s: present\n' "$AGENT";
-        else printf '%s: missing\n' "$AGENT"; MISSING=2; fi
+        else printf '%s: missing\n' "$AGENT"; [ "$INTERFACE" != cli ] || MISSING=2; fi
+        if find_desktop; then printf 'desktop: present (%s; coding features unverified)\n' "$DESKTOP_APP";
+        else printf '%s\n' 'desktop: not detected (use --desktop-app for a custom location)'; [ "$INTERFACE" != desktop ] || MISSING=2; fi
     fi
     if [ "$FEEDBACK" = enabled ]; then
         if command -v gh >/dev/null 2>&1; then printf '%s\n' 'gh: present (feedback enabled)';
@@ -133,7 +154,17 @@ if [ "$DEPS" -eq 1 ] && [ "$PLATFORM" = Darwin ]; then
         brew install --cask basictex
     fi
 fi
-if ! command -v "$AGENT" >/dev/null 2>&1; then
+if [ "$INTERFACE" = desktop ] && ! find_desktop; then
+    if [ "$AGENT" = codex ]; then APP_URL='https://learn.chatgpt.com/docs/app'; CASK='codex-app';
+    else APP_URL='https://code.claude.com/docs/en/desktop-quickstart'; CASK='claude'; fi
+    if [ "$DEPS" -eq 1 ] && [ "$PLATFORM" = Darwin ]; then
+        brew install --cask "$CASK"
+        find_desktop || fail "Desktop installation not detected. Follow $APP_URL or set --desktop-app, then rerun."
+    else
+        fail "Desktop application not detected. Install from $APP_URL and rerun; macOS Homebrew installation is available with --install-dependencies. CLI is separate: --interface cli."
+    fi
+fi
+if [ "$INTERFACE" = cli ] && ! command -v "$AGENT" >/dev/null 2>&1; then
     [ "$DEPS" -eq 1 ] || fail 'Selected agent missing. Install it from its official source or rerun with --install-dependencies.'
     command -v curl >/dev/null 2>&1 || fail 'Install curl, then rerun.'
     TEMP_INSTALL=$(mktemp)
@@ -172,5 +203,6 @@ if [ "$SMOKE" -eq 1 ]; then
 else
     "$ENV_PYTHON" -m fmj doctor --workspace "$WORKSPACE"
 fi
-printf 'Next: "%s" -m fmj run --workspace "%s"\n' "$ENV_PYTHON" "$WORKSPACE"
+"$ENV_PYTHON" -m fmj.setup --workspace "$WORKSPACE" --source "$SOURCE" --interface "$INTERFACE"
+if [ "$INTERFACE" = cli ]; then printf 'Next: "%s" -m fmj run --workspace "%s"\n' "$ENV_PYTHON" "$WORKSPACE"; fi
 printf '%s\n' 'Sign in yourself. Confirm scoped permissions and browser/upload/mail capabilities with the agent.'

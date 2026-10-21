@@ -25,6 +25,7 @@
   "fmj/documents.py",
   "fmj/feedback.py",
   "fmj/records.py",
+  "fmj/setup.py",
   "fmj/store.py",
   "fmj/telegram.py",
   "fmj/tracking.py",

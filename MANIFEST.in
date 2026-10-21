@@ -20,6 +20,7 @@ include docs/pilot.md
 include docs/support-matrix.md
 include docs/tracking.md
 include fmj/__init__.py
+include fmj/setup.py
 include fmj/__main__.py
 include fmj/campaign.py
 include fmj/documents.py

@@ -28,6 +28,7 @@
 !/fmj/
 !/fmj/__init__.py
 !/fmj/__main__.py
+!/fmj/setup.py
 !/fmj/campaign.py
 !/fmj/documents.py
 !/fmj/feedback.py

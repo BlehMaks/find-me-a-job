@@ -40,7 +40,7 @@ elif args[:2] == ['-m', 'pip']:
 elif args[:3] == ['-m', 'fmj', 'init']:
     root = pathlib.Path(args[args.index('--workspace')+1]); root.mkdir()
     (root / 'workspace.json').write_text(json.dumps({'agent': args[args.index('--agent')+1]}))
-elif args[:3] in (['-m', 'fmj', 'doctor'], ['-m', 'fmj', 'run']):
+elif args[:3] in (['-m', 'fmj', 'doctor'], ['-m', 'fmj', 'run']) or args[:2] == ['-m', 'fmj.setup']:
     pass
 else:
     os.execv(sys.executable, [sys.executable, *args])
@@ -52,7 +52,7 @@ else:
             path.chmod(0o700)
 
     def run_installer(self, *args):
-        return subprocess.run(["sh", str(self.source / "install/install.sh"), *args],
+        return subprocess.run(["sh", str(self.source / "install/install.sh"), '--interface', 'cli', *args],
                               cwd=self.base, env=self.env, capture_output=True, text=True)
 
     def calls(self):
@@ -145,6 +145,42 @@ else:
         self.assertFalse(self.workspace.exists())
         self.assertFalse(Path(str(self.workspace) + ".venv").exists())
 
+    def test_desktop_only_does_not_require_cli_and_reports_unknown_service(self):
+        (self.bin / 'codex').unlink()
+        app = self.base / 'Custom App.app'
+        app.mkdir()
+        result = self.run_installer('--yes', '--offline', '--interface', 'desktop',
+                                    '--desktop-app', str(app), '--workspace', str(self.workspace),
+                                    '--agent', 'codex', '--python', str(self.python))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Account/login/plan/quota: unknown', result.stdout)
+        self.assertIn('paid agent plan', result.stdout)
+        self.assertNotIn('fmj run --workspace', result.stdout)
+        self.assertTrue(any(call[:2] == ['-m', 'fmj.setup'] for call in self.calls()))
+        result = self.run_installer('--yes', '--offline', '--interface', 'desktop',
+                                    '--desktop-app', str(app), '--workspace', str(self.workspace),
+                                    '--agent', 'codex', '--python', str(self.python))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(sum(call[:3] == ['-m', 'fmj', 'init'] for call in self.calls()), 1)
+
+    def test_cli_does_not_satisfy_desktop_and_missing_app_preserves_data(self):
+        self.workspace.mkdir()
+        config = self.workspace / 'workspace.json'
+        config.write_text('{"agent":"codex","keep":"private"}')
+        result = self.run_installer('--yes', '--offline', '--interface', 'desktop',
+                                    '--desktop-app', str(self.base / 'absent.app'),
+                                    '--workspace', str(self.workspace), '--agent', 'codex',
+                                    '--python', str(self.python))
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Desktop application not detected', result.stderr)
+        self.assertEqual(config.read_text(), '{"agent":"codex","keep":"private"}')
+        self.assertFalse(any(call[:2] in (['-m', 'venv'], ['-m', 'pip']) for call in self.calls()))
+
+    def test_invalid_interface_rejected_without_writes(self):
+        result = self.run_installer('--interface', 'invalid', '--yes')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.trace.exists())
+
 
 class PowerShellInstallContract(unittest.TestCase):
     def test_powershell_safety_and_cli_contract(self):
@@ -173,6 +209,37 @@ class PowerShellInstallContract(unittest.TestCase):
             result = subprocess.run(["pwsh", "-NoProfile", "-File", str(ROOT / "install/install.ps1"), "-Workspace", str(root), "-Agent", "codex", "-DryRun"], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse(root.exists())
+
+
+class DesktopHandoffTests(unittest.TestCase):
+    def test_real_workspace_gets_exact_private_context_and_rerun_preserves_config(self):
+        from fmj.setup import handoff
+        from fmj.workspace import create_workspace
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve() / 'private space ü'
+            create_workspace(root, agent='claude')
+            config = (root / 'workspace.json').read_bytes()
+            text, path = handoff(root, ROOT, 'desktop')
+            self.assertEqual(path.read_text(), text)
+            self.assertIn('Code tab', text)
+            self.assertIn(str(root), text)
+            self.assertIn(str(ROOT / 'AGENTS.md'), text)
+            self.assertIn(sys.executable, text)
+            self.assertIn('Do not buy anything', text)
+            self.assertIn('separate permissions', text)
+            handoff(root, ROOT, 'desktop')
+            self.assertEqual((root / 'workspace.json').read_bytes(), config)
+            self.assertFalse((ROOT / 'runtime/start-here.md').exists())
+
+    def test_missing_source_instructions_rejected(self):
+        from fmj.setup import handoff
+        from fmj.workspace import create_workspace
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve() / 'private'
+            create_workspace(root, agent='codex')
+            with self.assertRaises(ValueError):
+                handoff(root, Path(temporary) / 'missing source', 'desktop')
+            self.assertFalse((root / 'runtime/start-here.md').exists())
 
 
 if __name__ == "__main__":
