@@ -300,15 +300,15 @@ def setup(options, runner):
         command = ['/bin/sh', str(source / 'install/install.sh'), *args]
         python = environment / 'bin/python'
     runner.emit('Preparing your private runtime…')
-    runner.run(command)
+    runner.run(command, cwd=source)
     config = json.loads((workspace / 'workspace.json').read_text(encoding='utf-8'))
     if options.feedback != 'unset':
         # Rerunning init deliberately preserves old consent; this is an explicit UI choice.
         runner.run([python, '-m', 'fmj', 'feedback', 'consent', '--workspace', workspace,
-                    '--enabled', 'yes' if options.feedback == 'enabled' else 'no', '--repository', UPSTREAM, '--actor', config['owner']])
+                    '--enabled', 'yes' if options.feedback == 'enabled' else 'no', '--repository', UPSTREAM, '--actor', config['owner']], cwd=workspace)
     feedback_state, feedback_auth = configure_feedback(source, workspace, tools, runner)
     runner.emit('Compiling and inspecting a synthetic PDF…')
-    result = runner.run([python, '-m', 'fmj', 'doctor', '--workspace', workspace, '--smoke'], timeout=180)
+    result = runner.run([python, '-m', 'fmj', 'doctor', '--workspace', workspace, '--smoke'], cwd=workspace, timeout=180)
     report = json.loads(result.stdout)
     if report.get('document_smoke', {}).get('status') != 'passed':
         raise Handoff('Runtime exists, but document checks did not pass. Complete the missing document tools and retry.')
