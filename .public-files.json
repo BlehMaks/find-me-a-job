@@ -30,6 +30,8 @@
   "fmj/telegram.py",
   "fmj/tracking.py",
   "fmj/workspace.py",
+  "install/clone.ps1",
+  "install/clone.sh",
   "install/install.ps1",
   "install/install.sh",
   "markets/at.md",

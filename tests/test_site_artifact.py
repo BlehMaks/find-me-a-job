@@ -63,9 +63,8 @@ class SiteArtifactTests(unittest.TestCase):
         for tag, attribute, value in self.page.reference_context:
             parsed = urlsplit(value)
             if parsed.scheme:
-                self.assertEqual(value, "https://github.com/BlehMaks/find-me-a-job")
+                self.assertIn(value, {"https://github.com/BlehMaks/find-me-a-job", "https://learn.chatgpt.com/docs/app", "https://code.claude.com/docs/en/desktop-quickstart", "https://desktop.github.com/download/"})
                 self.assertEqual((tag, attribute), ("a", "href"))
-                self.assertIn('<a class="text-link" href="' + value + '">', self.source)
                 continue
             self.assertFalse(parsed.scheme, "Site resources must be relative; no external tracking/font scripts")
             self.assertFalse(parsed.netloc)

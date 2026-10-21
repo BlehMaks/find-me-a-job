@@ -4,28 +4,39 @@ A local workspace for a career-search agent: turn experience into confirmed know
 
 The interface is your existing Codex or Claude Code agent. There is no hosted account or web dashboard. An optional operator-managed setup adds bound client questions and pause/resume through Telegram.
 
-## Start from a checkout
+## Start in a desktop app (recommended)
 
-You need Git, Python **3.11+** and an installed, authenticated supported agent. Document builds also need **XeLaTeX**, its template packages/fonts and Poppler's `pdftoppm`. GitHub CLI is needed only for optional upstream feedback. Browser, uploads and mailbox access require an available host integration and separate checks.
+1. Install [Codex / the current ChatGPT desktop app](https://learn.chatgpt.com/docs/app) or [Claude Desktop](https://code.claude.com/docs/en/desktop-quickstart). In Claude use the **Code** tab. Existing installations can be reused; the desktop route does not require the agent CLI.
+2. Clone this repository locally. Without a terminal, install [GitHub Desktop](https://desktop.github.com/download/), choose **File → Clone repository → URL**, paste `https://github.com/BlehMaks/find-me-a-job.git` and select a local folder. While the repository is private, your GitHub account needs access. Existing folders are not overwritten.
+3. In Codex add/open that local project folder. In Claude Code choose the **Local** environment and **Open folder…**. Choose the cloned repository, then paste:
 
-Clone using the repository's GitHub **Code → Clone** URL, open a terminal inside it, then inspect the bootstrap:
+> Read AGENTS.md and the selected adapter. Help me set up Find Me a Job using the desktop interface. First confirm my agent account, plan and usage budget. Use a separate private workspace outside this repository for all personal data and output. Inspect the installer, show me the setup plan, and configure the local runtime after my permission. Ask for access to that private folder when needed. Begin experience intake after setup; do not start applications yet.
+
+The agent can prepare the Python environment, document dependencies and private workspace using the reviewed installer. It asks you for missing folder/browser/mail permissions through the host's supported flow. Grant access to the source folder and the separate private workspace; opening the repository alone does not grant every capability. Do not move your personal materials into the clone to work around a denied permission.
+
+For sustained application campaigns we recommend a paid agent plan. Free allowances may be useful for exploration but are not a reliable campaign budget; paid plans also have limits. Installing an app proves neither subscription nor available quota. Confirm these in your account. Nothing buys a subscription, signs in or changes billing automatically.
+
+## Installer and optional CLI route
+
+From a reviewed checkout, you or your desktop agent can run:
 
 ```sh
-sh install/install.sh --help
 sh install/install.sh --workspace "$HOME/fmj-private" --agent codex --dry-run
 sh install/install.sh --workspace "$HOME/fmj-private" --agent codex --yes --smoke
 ```
 
-Use `--agent claude` for Claude Code. On Windows use `install/install.ps1`; see [installation](docs/install.md) for exact options, dependency installation, offline use and resuming. The default bootstrap only prints a plan. Installing agent software/system dependencies is separately selected; it preserves existing agent configuration and requires provider authentication where applicable.
+Desktop is the default. Add `--install-dependencies` to permit missing desktop/system software installation through available package managers. Use `--desktop-app PATH` for a custom app location. The installer prints exact folder paths and a starter prompt, also saved privately as `runtime/start-here.md`.
 
-The default environment is a sibling of the private workspace. Continue with:
+For the CLI alternative, select it explicitly:
 
 ```sh
-"$HOME/fmj-private.venv/bin/fmj" doctor --workspace "$HOME/fmj-private" --json
+sh install/install.sh --interface cli --workspace "$HOME/fmj-private" --agent codex --yes
 "$HOME/fmj-private.venv/bin/fmj" run --workspace "$HOME/fmj-private"
 ```
 
-Alternatively create an external virtual environment, run `python -m pip install .` there, then `fmj init --workspace /absolute/private-directory --agent codex`. Keep both the environment and workspace outside this checkout. See the [tested platform matrix](docs/support-matrix.md); missing capabilities are precise handoffs.
+The CLI route automatically prepares the runtime and workspace; `run` binds the agent to the correct private directory and source instructions. Existing global agent settings remain unchanged. Provider sign-in, service access and browser/mail permissions still require their own checks.
+
+Use `--agent claude` for Claude Code. On Windows use `install/install.ps1 -Interface desktop` or `-Interface cli`. Git and Python **3.11+** are required for runtime setup; PDF work needs **XeLaTeX** and Poppler's `pdftoppm`. GitHub CLI is optional unless upstream feedback is enabled. See [installation](docs/install.md) for platform paths, offline use, partial setup and resuming, and the [tested platform matrix](docs/support-matrix.md).
 
 ## Workflow
 

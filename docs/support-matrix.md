@@ -1,6 +1,6 @@
 # Support and verification matrix
 
-Evidence date: 2026-10-20. A platform name expresses an intended setup path, not certification of every integration. Provider account/region restrictions, extension versions, browser profiles and permissions can change. Re-run doctor and interactive checks on the actual computer.
+Evidence date: 2026-10-21. A platform name expresses an intended setup path, not certification of every integration. Provider account/region restrictions, extension versions, browser profiles and permissions can change. Re-run doctor and interactive checks on the actual computer.
 
 | Environment | Bootstrap/core evidence | Agent launch path | Browser/upload/mail evidence |
 | --- | --- | --- | --- |
@@ -26,3 +26,9 @@ Use `verified`, `missing`, `unsupported` or `untested` with version, date and ev
 The repository does not promise universal ATS acceptance, unbounded platform automation, statistical-watermark removal or hiring outcomes. Tool-required human actions remain required. Public readiness also requires rights/history/payload review, an explicit release decision and a consenting real-participant pilot; synthetic tests and this document do not satisfy those gates.
 
 Official capability references: [Codex CLI](https://developers.openai.com/codex/cli), [Codex Chrome extension](https://learn.chatgpt.com/docs/chrome-extension), [Claude setup](https://code.claude.com/docs/en/setup), [Claude Chrome](https://code.claude.com/docs/en/chrome). Check their current availability rather than relying on this date indefinitely.
+
+## Desktop setup coverage
+
+Desktop is the installer's default interface; CLI requires explicit selection. macOS discovery checks Codex/ChatGPT or Claude application bundles; Windows checks known app registrations/paths. A custom app path can be supplied. Desktop presence never proves coding features, login, subscription, quota or permissions. Desktop mode does not install or require the agent CLI. Existing CLI-only integrations remain available with the explicit CLI selection.
+
+Native desktop install routes are implemented for macOS Homebrew and Windows WinGet; actual fresh app installation and an authenticated first GUI session remain untested. Linux/WSL desktop provisioning is a provider-specific manual handoff. Automated fixture checks cover interface separation and state preservation, not provider GUI operation. The landing page and README also offer graphical GitHub Desktop cloning and a copyable desktop-agent setup request.

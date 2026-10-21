@@ -118,3 +118,5 @@ include tests/test_site_artifact.py
 include tests/test_telegram_control.py
 include tests/test_template_selection.py
 include tests/test_workspace.py
+include install/clone.sh
+include install/clone.ps1

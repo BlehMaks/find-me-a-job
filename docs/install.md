@@ -2,6 +2,49 @@
 
 This is a repository used by an agent, not a hosted application. Start from an inspected clone obtained with Git or GitHub CLI. Choose an agent account/subscription and a **private directory outside the source checkout**. Personal files must not be placed in source, even when ignored by Git.
 
+## Desktop-first setup without an agent CLI
+
+Clone with [GitHub Desktop](https://desktop.github.com/download/) using **File → Clone repository → URL** and `https://github.com/BlehMaks/find-me-a-job.git`. Choose a new local folder. While source is private, sign in with an authorized GitHub account. Alternatively, `git clone https://github.com/BlehMaks/find-me-a-job.git` does the same from a terminal. Never clone into a client-data folder or overwrite an existing directory.
+
+Install an app from its official source, or let the reviewed bootstrap install missing software with its explicit dependency flag:
+
+- **Codex / current ChatGPT desktop:** [official app instructions](https://learn.chatgpt.com/docs/app); add/open the local cloned folder, select Codex and start a local chat.
+- **Claude Desktop:** [official Code setup](https://code.claude.com/docs/en/desktop-quickstart); sign in, open **Code**, choose a **Local** environment and **Open folder…**, then select the clone. The Code tab does not need the separate `claude` CLI.
+
+Paste the starter request from [README](../README.md#start-in-a-desktop-app-recommended). The agent inspects the installer, establishes your preferred external workspace and prepares the runtime with permission. It must request access to the external private directory separately if the app's folder scope excludes it. App labels vary by version. Filesystem access does not imply browser, upload, mailbox or full computer control.
+
+On macOS with existing Homebrew, `--yes --install-dependencies` installs a missing desktop app via cask **codex-app** or **claude**. The **codex** cask is the CLI and is not used for desktop setup. Native Windows uses interactive WinGet: OpenAI Store ID **9PLM9XGG6VKS**, or **Anthropic.Claude** for desktop. Existing apps are preserved; no reinstall is requested when detected. Linux/WSL desktop installation remains a provider-specific manual handoff; use the provider's official guide or explicitly choose CLI. Custom app locations use `--desktop-app PATH` / `-DesktopApp PATH`. Detection means presence, not a working Code tab.
+
+### Optional clone-and-setup launcher
+
+The repository also contains small reviewed `install/clone.sh` and `install/clone.ps1` launchers. They clone the fixed project URL into a **new** directory and invoke the installer from that clone. Review both launcher and repository before permitting execution. Downloading a script does not grant permission to run it. While this repository is private, Git must already have authorized GitHub access; no token is embedded in a download command.
+
+```sh
+sh install/clone.sh "$HOME/find-me-a-job" --agent codex \
+  --workspace "$HOME/career-workspace" --yes
+```
+
+```powershell
+.\install\clone.ps1 -Checkout "$env:USERPROFILE\find-me-a-job" `
+  -Workspace "$env:USERPROFILE\career-workspace" -Agent claude -Yes
+```
+
+Without `--yes` / `-Yes`, or with dry-run, no clone is made. An existing destination is refused; resume its `install/install` script instead. The launchers do not reset/pull existing repositories, install Git or log you in. GitHub Desktop remains the primary graphical cloning option.
+
+### Partially configured computers
+
+| Existing setup | Next step |
+| --- | --- |
+| Desktop app, no agent CLI | Continue in desktop mode; the CLI is optional |
+| CLI only, desktop selected | Install the desktop app; do not silently switch interfaces |
+| Paid account, app missing | Install the chosen app, then sign in to the existing account |
+| App installed, free/unknown account | Check the plan in the app; recommend paid access for sustained campaigns |
+| Both installed | Use the selected interface and preserve the other installation |
+| Setup interrupted | Rerun with the same workspace/provider; existing policy/data remain |
+
+Account, login, subscription and quota are reported **unknown**, never inferred from software or cached credentials. Ask the person to confirm access in the selected app. Recommend a paid plan for ongoing campaign work; free limits are not a reliable budget, and paid plans are also limited. API funding is separate from a consumer subscription; never switch to API billing automatically. Provider references checked 21 October 2026: [OpenAI plans/limits](https://learn.chatgpt.com/docs/pricing), [Claude desktop requirements](https://code.claude.com/docs/en/desktop-quickstart). No credentials or payment are collected by this repository.
+
+
 ## Inspect the plan
 
 Run from the checkout on macOS or Linux:
@@ -27,16 +70,16 @@ After reviewing the source, choose a local private workspace:
 ```sh
 sh install/install.sh \
   --workspace "$HOME/career-workspace" \
-  --agent codex --yes --smoke
+  --agent codex --interface desktop --yes --smoke
 ```
 
 ```powershell
 .\install\install.ps1 `
   -Workspace "$env:USERPROFILE\career-workspace" `
-  -Agent claude -Yes -Smoke
+  -Agent claude -Interface desktop -Yes -Smoke
 ```
 
-Choose `codex` or `claude`; existing installations/configuration are preserved. A separate Python environment defaults to the workspace path with `.venv` appended. Override with `--venv` / `-Venv` and select existing Python 3.11+ using `--python` / `-Python`. Workspace, environment and source must not overlap or traverse symbolic links/junctions. Existing non-environment directories are not overwritten. Re-running preserves an initialized workspace and its policy/feedback choice.
+Choose `codex` or `claude` independently of `desktop` or `cli`; desktop is the default. Existing installations/configuration are preserved. Desktop setup never requires the agent CLI; select `--interface cli` / `-Interface cli` for the previous command-line launch path. A separate Python environment defaults to the workspace path with `.venv` appended. Override with `--venv` / `-Venv` and select existing Python 3.11+ using `--python` / `-Python`. Workspace, environment and source must not overlap or traverse symbolic links/junctions. Existing non-environment directories are not overwritten. Re-running preserves an initialized workspace and its policy/feedback choice.
 
 Resume with the workspace's configured agent. A conflicting agent choice stops setup before environment changes; use a separate workspace when choosing a different agent.
 
@@ -53,13 +96,13 @@ The installer installs this checkout into the private environment with its pinne
 - **Native Windows:** the PowerShell path can install missing Python and Git (plus GitHub CLI for enabled feedback) through WinGet when explicitly permitted, using interactive package prompts. Install [official TeX Live](https://tug.org/texlive/windows.html). A reviewed Windows Poppler binary source is a separate handoff; the bootstrap does not fetch an unreviewed binary. Review private-directory Windows ACLs. This native path remains untested until run on a real Windows machine.
 - **WSL:** use the POSIX installer inside the chosen distribution. Its Python/TeX environment and Windows browser integrations are separate capabilities. Do not report native Windows tests as WSL tests or assume Chrome/native desktop integration works across the boundary.
 
-Missing chosen agents can be installed through the official native installers, downloaded then executed only under the explicit dependency flag. Review the provider's current installer and sign in yourself: [Codex](https://developers.openai.com/codex/cli), [Claude Code](https://code.claude.com/docs/en/setup). These installer channels can change; record the installed version. No bundled agent binary, account or subscription is included.
+In CLI mode, missing chosen agents can be installed through the official native installers, downloaded then executed only under the explicit dependency flag. Review the provider's current installer and sign in yourself: [Codex](https://developers.openai.com/codex/cli), [Claude Code](https://code.claude.com/docs/en/setup). These installer channels can change; record the installed version. No bundled agent binary, account or subscription is included.
 
 If a new binary is not on PATH, reopen the terminal and rerun. Do not overwrite existing configuration or enable unrestricted execution to make a capability check pass.
 
 ## Start the agent and complete onboarding
 
-The bootstrap prints the exact private-environment Python path and `fmj run` command. Use it to launch the selected agent bound to the workspace. Or start the agent in this checkout and explicitly identify the workspace; it reads `AGENTS.md` / `CLAUDE.md`.
+Desktop setup prints exact source/private-workspace/runtime paths and a copyable starter prompt, saved in the private workspace at `runtime/start-here.md`. Open the cloned source folder in the desktop app, paste that prompt, and grant the separate private-folder access through the app when requested. In CLI mode the bootstrap also prints `fmj run`; it launches the agent with private cwd, runtime PATH and explicit source/workspace context automatically. No global agent configuration is overwritten.
 
 First confirm provider/service data processing, language/timezone and scoped capabilities. Browser navigation, upload, mailbox read/send and optional native computer control require separate real checks. A CLI installation does not provide them. Tool-required credential, CAPTCHA and agreement handoffs stay with the person. No helper bypasses them.
 

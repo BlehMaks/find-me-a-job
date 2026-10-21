@@ -24,7 +24,9 @@ class PosixInstallContract(unittest.TestCase):
         self.trace = self.base / "trace.jsonl"
         self.bin = self.base / "bin"
         self.bin.mkdir()
-        self.env = dict(os.environ, PATH=str(self.bin) + os.pathsep + os.environ["PATH"], FMJ_INSTALL_TRACE=str(self.trace))
+        for tool in ('sh', 'dirname', 'uname'):
+            (self.bin / tool).symlink_to(shutil.which(tool))
+        self.env = dict(os.environ, PATH=str(self.bin), FMJ_INSTALL_TRACE=str(self.trace))
         self.python = self.bin / "python-test"
         self.python.write_text("#!" + sys.executable + "\n" + r'''
 import json, os, pathlib, sys
@@ -179,6 +181,53 @@ else:
     def test_invalid_interface_rejected_without_writes(self):
         result = self.run_installer('--interface', 'invalid', '--yes')
         self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.trace.exists())
+
+    def test_check_reports_both_components_independently(self):
+        for tool in ('git', 'xelatex', 'pdftoppm'):
+            path = self.bin / tool
+            path.write_text('#!/bin/sh\nexit 0\n')
+            path.chmod(0o700)
+        app = self.base / 'Desktop ü.app'
+        cli = self.bin / 'codex'
+        for has_desktop, has_cli in ((False, False), (False, True), (True, False), (True, True)):
+            if has_desktop:
+                app.mkdir(exist_ok=True)
+            elif app.exists():
+                app.rmdir()
+            if has_cli:
+                cli.write_text('#!/bin/sh\nexit 0\n'); cli.chmod(0o700)
+            else:
+                cli.unlink(missing_ok=True)
+            for interface in ('desktop', 'cli'):
+                result = self.run_installer('--check', '--interface', interface, '--agent', 'codex',
+                                            '--desktop-app', str(app), '--python', str(self.python))
+                with self.subTest(desktop=has_desktop, cli=has_cli, interface=interface):
+                    self.assertEqual(result.returncode, 0 if (has_desktop if interface == 'desktop' else has_cli) else 2)
+                    self.assertIn('codex: present' if has_cli else 'codex: missing', result.stdout)
+                    self.assertIn('desktop: present' if has_desktop else 'desktop: not detected', result.stdout)
+                    self.assertIn('Account/login/plan/quota: unknown', result.stdout)
+        self.assertFalse(self.workspace.exists())
+
+    def test_clone_launcher_plan_collision_and_network_failure(self):
+        script = ROOT / 'install/clone.sh'
+        def run(*args):
+            return subprocess.run(['sh', str(script), str(self.workspace), *args],
+                                  env=self.env, capture_output=True, text=True)
+        for args in ((), ('--yes', '--dry-run'), ('--yes', '--offline')):
+            result = run(*args)
+            self.assertEqual(result.returncode, 2 if '--offline' in args else 0)
+            self.assertFalse(self.workspace.exists())
+        self.workspace.mkdir()
+        sentinel = self.workspace / 'keep'
+        sentinel.write_text('private')
+        result = run('--yes')
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(sentinel.read_text(), 'private')
+        sentinel.unlink(); self.workspace.rmdir()
+        git = self.bin / 'git'
+        git.write_text('#!/bin/sh\nexit 17\n'); git.chmod(0o700)
+        self.assertEqual(run('--yes').returncode, 17)
         self.assertFalse(self.trace.exists())
 
 

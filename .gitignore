@@ -151,3 +151,5 @@
 !/tests/test_telegram_control.py
 !/tests/test_template_selection.py
 !/tests/test_workspace.py
+!/install/clone.sh
+!/install/clone.ps1
