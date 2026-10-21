@@ -26,4 +26,8 @@ Lead the summary with the target identity in two to four concise lines where sui
 
 Eligibility requires actual pass results for mandatory gates bound to the final content/artifact hash. Unavailable checks are unavailable, never pass. Content/layout changes invalidate affected checks. A generated PDF is not ready merely because compilation succeeded.
 
+Pass the selected complete `--profile` and `--workspace` to document builds. Runtime binds each visible factual unit to current claim/fact versions; exact approved wording can be linked automatically. For a rewritten unit supply its JSON-pointer dependency during tailoring. Use direct fact references for header/chronology. Missing/stale provenance prevents production use. Register the exact standard/inactive artifact selected for the CV field; a reviewed bundle cannot authorize another PDF. `documents finalize --workspace` checks freshness; an unrelated fact edit need not invalidate the CV.
+
+Choose the independent agent or human review route early in setup. `documents review-pack` exports exact private page paths, content and hashes. A missing reviewer leaves a draft. With no usable browser/upload route, deliver a reviewed manual-submission package with exact files and form answers instead of claiming automation is ready.
+
 Prepare required letters/statements via `prompts/letters-and-statements.md`. General supporting documents remain distinct from CV/letter fields. Originals must be authorized and preserved without rewriting.

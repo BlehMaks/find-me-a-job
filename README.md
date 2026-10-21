@@ -43,6 +43,10 @@ Starter market notes cover Germany, Austria, Switzerland, the UK, the US, Canada
 
 `fmj --help` and each subcommand's `--help` list the interfaces. `record` validates versioned facts, claims, answers and policies. `documents previews/build/check/review/finalize` creates and verifies durable private bundles. Synthetic content examples live under `tests/fixtures/documents/`.
 
+Operational memory uses local SQLite with linked companies, opportunities, applications, documents and next actions. Normal commands record effects automatically; no duplicate narrative ledger or reporting model is required. Use `track list/report` for bounded queries, and inspect employer-interest tasks before new discovery. Existing workspaces require validated migration. See [tracking and recovery](docs/tracking.md).
+
+For suitable opportunities seek referrals before submitting, contacting a few relevant people in parallel with a finite wait. Prepare documents and continue other opportunities meanwhile. Preserve broad matching; every 50 unique observed new applications creates a short, nonblocking direction review.
+
 The selected agent uses its actual permitted host tools for browser and mailbox access. After observing a synthetic capability check, record private evidence with `fmj capability`. Before an external action, prepare an operation and call `campaign begin` with the actual form observation. It returns a one-use ticket for that exact intent. Perform the permitted native action once, then `campaign complete` with an observed outcome and evidence. See [the operation contract](docs/operations.md).
 
 One uncertain or in-flight delivery prevents another send in that workspace. `campaign recover` is an explicit restart reconciliation step. Screenshots, receipts and form observations are evidence; a generated CV or queue row is not a submitted application.

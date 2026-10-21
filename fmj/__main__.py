@@ -85,7 +85,7 @@ def parser():
         if action in ('migrate','restore'):q.add_argument('--apply',action='store_true')
         if action in ('backup','restore'):q.add_argument('--path',required=True)
     track=commands.add_parser('track').add_subparsers(dest='action',required=True)
-    for action in ('company','opportunity','contact','referral','action','list','report'):
+    for action in ('company','opportunity','contact','referral','action','review','evidence','list','report'):
         q=track.add_parser(action);q.add_argument('--workspace',required=True)
         if action not in ('list','report'):q.add_argument('--input',required=True)
         if action=='list':

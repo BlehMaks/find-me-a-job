@@ -2,6 +2,8 @@
 
 Give a reviewer the vacancy/call (or general-profile objective), final extracted wording, all rendered pages, selected template constraints and allowed facts/claims. Do not ask them to review unrelated code architecture or private repository hygiene. Independence means another available reviewer agent/person; a self-check cannot be reported as independent review. If unavailable, record the mandatory gate unavailable and retain draft status.
 
+Choose the route at setup. Export `documents review-pack --bundle PRIVATE_BUNDLE` for the independent human or available separate agent. The pack preserves hashes and page IDs; import the actual result through `documents review`. Exporting a pack is not review completion. A smaller helper may summarize when useful, but cannot replace missing factual or every-page inspection.
+
 Findings have: material/optional; category (factual, fit, wording, visual); exact page/section/bullet; defect and application consequence; concrete evidence-bounded correction. Prioritize false implication, missed direct evidence, broken reading order, wrong structure, truncation and confusing chronology over stylistic taste.
 
 Diagnose parser warnings using extracted text and the rendered page. A language dictionary warning or missing separator between concatenated pages does not by itself prove a PDF defect. Continuation headings must retain the correct parent employer or institution. Regression checks should accept equivalent accurate wording while preserving the actual fact, scope and reading order.

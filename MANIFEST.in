@@ -18,6 +18,7 @@ include docs/managed.md
 include docs/operations.md
 include docs/pilot.md
 include docs/support-matrix.md
+include docs/tracking.md
 include fmj/__init__.py
 include fmj/__main__.py
 include fmj/campaign.py
@@ -105,6 +106,8 @@ include tests/test_intake_acceptance.py
 include tests/test_interview_handoffs.py
 include tests/test_managed_isolation.py
 include tests/test_observations.py
+include tests/test_operational_journey.py
+include tests/test_referral_feedback.py
 include tests/test_public_tree.py
 include tests/test_records.py
 include tests/test_store.py

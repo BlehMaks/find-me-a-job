@@ -24,6 +24,7 @@
 !/docs/operations.md
 !/docs/pilot.md
 !/docs/support-matrix.md
+!/docs/tracking.md
 !/fmj/
 !/fmj/__init__.py
 !/fmj/__main__.py
@@ -138,8 +139,10 @@
 !/tests/test_interview_handoffs.py
 !/tests/test_managed_isolation.py
 !/tests/test_observations.py
+!/tests/test_operational_journey.py
 !/tests/test_public_tree.py
 !/tests/test_records.py
+!/tests/test_referral_feedback.py
 !/tests/test_release_payload.py
 !/tests/test_search_policy.py
 !/tests/test_site_artifact.py

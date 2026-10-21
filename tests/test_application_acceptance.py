@@ -133,6 +133,18 @@ class ApplicationAcceptanceTests(unittest.TestCase):
         self.assertEqual(result["stage"], "delivery_unknown")
         self.assertEqual(status(self.root)["blockers"], [])
 
+    def test_actual_question_context_cannot_reuse_an_answer_for_another_question(self):
+        answer=save_record(self.root,'answer',{'id':'travel','question':'Travel willingness?',
+            'answer':'Yes','scope':{'type':'employer','employer':'Synthetic Lab'},'confirmation':'confirmed',
+            'confirmed_by':'candidate','confirmed_at':'2026-01-01T00:00:00Z'})
+        context={'travel':{'question':answer['question'],'scope':answer['scope'],'answer_id':answer['id']}}
+        operation=create_operation(self.root,self.opportunity,'campaign-1',answers=[answer],
+            form_values={'travel':'Yes'},question_context=context)
+        form={'fields':{'travel':'Yes'},'recipient':None,'attachments':[],
+            'question_context':{'travel':{**context['travel'],'question':'Accept binding relocation obligation?'}}}
+        with self.assertRaisesRegex(CampaignBlocked,'questions or context'):
+            self.send(operation,form)
+
     def test_outreach_is_not_counted_as_an_application(self):
         application = create_operation(self.root, self.opportunity, "campaign-1")
         self.send(application, {"fields":{}, "recipient":None, "attachments":[]})

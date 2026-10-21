@@ -74,6 +74,8 @@ sh install/install.sh --workspace "$HOME/career-workspace" \
 
 Bring several historical CV versions if available; otherwise tell the agent your story. Work through the project interview, confirm claims/recurring answers and choose from two or three relevant LaTeX structures. The first result is an inspectable evidence base and general CV. Only then approve roles, resources, filters, outreach and schedule for a campaign.
 
+Choose an independent human or separate-agent review route before document work. `documents review-pack` supplies exact private content, hashes and pages; doctor reports an unconfigured reviewer. Missing browser/upload leaves a manual-submission package available. Agent launch uses the private workspace and installed runtime without parent-shell activation. Version-1 workspaces need `storage migrate` inspection and explicit `--apply`; see [tracking and recovery](tracking.md).
+
 ## Managed setup
 
 The operator provisions separate private workspaces/browser sessions and initial resources. Use `--mode managed --operator ID` (PowerShell: `-Mode managed -Operator ID`). The operator configures paid-client Telegram binding separately; self-hosted operation does not require Telegram. Never put bot tokens, passwords or client material in source or chat. A client pause stops new outbound actions; resume removes only their own pause, with no billing/access change.

@@ -9,6 +9,8 @@ Read policy, canonical opportunity, current bundle/verification, answer bank, co
 
 ## Prepare
 
+Check the local registry and referral route **before** formal submission. Where a referral is possible, seek a few relevant employees in parallel and hold that opportunity for the configured finite wait; prepare its CV and continue other opportunities. Verify employer-specific ordering. Fresh verified publication, deadline or documented unavailable contacts may justify a recorded direct exception. Do not request a pre-application referral after applying or resubmit when a late link arrives. Use `docs/tracking.md`.
+
 1. Capture live form/call requirements and deadline. Reuse confirmed question-scoped answers (`prompts/application-answers.md`), compose custom responses from approved claims and persist concrete missing facts. Distinguish confirmed absent, transferable gap and unknown.
 2. Tailor summary, skills and highest-value achievements to the role. Use `skills/documents/SKILL.md`; obtain required letter/statement automatically, optional industry letters only under request/policy. Complex proposal approvals remain required before submission.
 3. Reuse approved sessions/accounts and handle registration via `auth.md`. Group shared blockers and continue unrelated opportunities. Never label an untested historical blocker current merely because it once affected another form.
@@ -18,6 +20,8 @@ Read policy, canonical opportunity, current bundle/verification, answer bank, co
 ## Dispatch and reconcile
 
 Create an operation intent tied to opportunity, policy, bundle, exact answers, recipient and attachments. Use the runtime's single outbound writer. At the final action recheck authority, pauses, blockers, expiry, deduplication and unchanged preflight. A prepared form or approved proposal is not submission evidence.
+
+Normal commands persist the necessary history. Do not maintain a duplicate ledger or call a reporting model after each action. A changed unsent form/policy/document uses `campaign refresh`; an unknown send first requires reconciliation. For correspondence provide thread/turn/reply-to identity, rather than inventing a new purpose to bypass deduplication. Record lifecycle observations and next actions through the runtime; do not revive completed assessments because mail is absent.
 
 Observe portal success, validation rejection, timeout or unknown honestly. Record actual evidence privately and freeze submitted answer/artifact versions. A corrected validation rejection may continue the same operation if no delivery occurred. Any uncertainty after a possible send is delivery unknown: reconcile portal/sent state before retrying. Absence of acknowledgement alone is not failure. Match receipts only to evidence-supported roles; company-only ambiguous mail stays unmatched.
 

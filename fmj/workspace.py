@@ -100,7 +100,7 @@ def create_workspace(path, mode="self_hosted", source_root=None, workspace_id=No
         private_directory(root / directory)
     with locked_workspace(root):
         pass
-    return config
+    return load_workspace(root)
 
 
 def load_workspace(path):

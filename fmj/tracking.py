@@ -10,6 +10,15 @@ from .records import _digest, _no_secrets, canonical_url, contact_key
 from .workspace import WorkspaceError, load_workspace, locked_workspace, now
 
 
+def _effect(root, kind, entity_id, value, previous=None):
+    if value == previous or load_workspace(root).get('migration_pending'):
+        return
+    from .records import append_event
+    # State transitions are captured by code; agents do not write a second report.
+    summary={key:value[key] for key in ('status','owner','due_at','deadline_source','selected_contact','direct_reason') if key in value}
+    append_event(root,kind,actor='runtime',entity_id=entity_id,data={'record_hash':_digest(value),**summary})
+
+
 def _company_name(value):
     value = " ".join(re.sub(r"[^\w]+", " ", str(value).casefold()).split())
     return re.sub(r"\s+(gmbh|ag|inc|ltd|limited|ab|llc|corp|corporation)$", "", value)
@@ -18,6 +27,8 @@ def _company_name(value):
 def company(root, name, aliases=None, parent_id=None, group_evidence=None, **details):
     if not isinstance(name, str) or not name.strip():
         raise WorkspaceError("Company name is required")
+    if set(details)&{'id','created_at'}:
+        raise WorkspaceError('Company identity and creation time are runtime-owned')
     _no_secrets(details)
     with locked_workspace(root):
         db = store.connection(root)
@@ -49,11 +60,15 @@ def company(root, name, aliases=None, parent_id=None, group_evidence=None, **det
                    (key, value["name"], value.get("parent_id"), store.encode(value)))
         for alias in normalized:
             db.execute("INSERT OR IGNORE INTO company_aliases VALUES('name',?,?)", (alias, key))
+        _effect(root,'company_recorded',key,value,json.loads(prior[0]) if prior else None)
         return value
 
 
 def opportunity(root, value):
     _no_secrets(value)
+    for field in ('discovered_at','published_at','deadline'):
+        if value.get(field) and datetime.fromisoformat(value[field]).tzinfo is None:
+            raise WorkspaceError('Opportunity dates must include timezone')
     with locked_workspace(root):
         db = store.connection(root)
         employer = company(root, value["employer"])
@@ -78,6 +93,7 @@ def opportunity(root, value):
                    (key, employer["id"], result.get("title", ""), result["discovered_at"], store.encode(result)))
         for kind, alias in aliases:
             db.execute("INSERT OR IGNORE INTO opportunity_aliases VALUES(?,?,?,?)", (employer["id"], kind, alias, key))
+        _effect(root,'opportunity_recorded',key,result,json.loads(prior[0]) if prior else None)
         return result
 
 
@@ -92,6 +108,8 @@ def application(root, opp_id, policy_id, application_class="employment", histori
 
 
 def contact(root, channel, address, identity=None, company_id=None, refused=False, **details):
+    if 'id' in details:
+        raise WorkspaceError('Contact identity is runtime-owned')
     with locked_workspace(root):
         key = contact_key(channel, address, identity)
         db = store.connection(root)
@@ -103,6 +121,7 @@ def contact(root, channel, address, identity=None, company_id=None, refused=Fals
         _no_secrets(value)
         db.execute("INSERT INTO contacts VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET company_id=excluded.company_id,payload=excluded.payload",
                    (key, value.get("company_id"), store.encode(value)))
+        _effect(root,'contact_recorded',key,value,json.loads(prior[0]) if prior else None)
         return value
 
 
@@ -119,15 +138,24 @@ def save_operation(root, operation, historical=False):
     _no_secrets(operation)
     db = store.connection(root)
     app_id = operation.get("application_id")
+    if app_id and operation["stage"] == "submission_observed" and not operation.get("route_snapshot"):
+        wait = db.execute("SELECT payload FROM referral_waits WHERE opportunity_id=?", (operation["opportunity_id"],)).fetchone()
+        referral_state = json.loads(wait[0]) if wait else None
+        operation["route_snapshot"] = {"route":"unknown" if operation.get("submission_basis") == "matched_receipt" else "referral" if referral_state and referral_state["status"] == "selected" else "direct",
+                                       "referral":referral_state}
     db.execute("INSERT INTO operations VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET stage=excluded.stage,payload=excluded.payload",
         (operation["id"], operation["identity"], operation.get("opportunity_id", operation["intent"]["opportunity_id"]),
          app_id, operation.get("revision", 1), operation["intent"]["action"], operation["stage"],
          operation["created_at"], store.encode(operation)))
     if operation.get("dispatch_started_at"):
         attempt_id = _digest([operation["id"], operation["dispatch_started_at"]])
+        elapsed=None
+        if operation.get('dispatch_ended_at'):
+            duration=(datetime.fromisoformat(operation['dispatch_ended_at'])-datetime.fromisoformat(operation['dispatch_started_at'])).total_seconds()
+            elapsed=duration if duration>=0 else None
         db.execute("INSERT INTO attempts VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET stage=excluded.stage,payload=excluded.payload",
                    (attempt_id, operation["id"], operation["dispatch_started_at"], operation["stage"], store.encode({
-                       "outcome":operation["stage"], "evidence":operation.get("delivery_evidence")})))
+                       "outcome":operation["stage"], "evidence":operation.get("delivery_evidence"),'elapsed_seconds':elapsed})))
     if app_id and operation["stage"] == "submission_observed":
         db.execute("UPDATE applications SET submitted_at=COALESCE(submitted_at,?) WHERE id=?",
                    (operation.get("dispatch_ended_at", operation.get("reconciled_at", now())), app_id))
@@ -151,6 +179,9 @@ def import_operation(root, operation):
             "proposal" if value["intent"]["action"] == "submit_proposal" else "employment", historical=True)
         value["revision"] = store.connection(root).execute("SELECT COUNT(*)+1 FROM operations WHERE application_id=?", (value["application_id"],)).fetchone()[0]
     save_operation(root, value, historical=True)
+    if value.get('application_id') and value.get('historical_submission_at'):
+        store.connection(root).execute('UPDATE applications SET submitted_at=COALESCE(submitted_at,?) WHERE id=?',
+            (value['historical_submission_at'],value['application_id']))
 
 
 def action(root, kind, owner, operation_id=None, due_at=None, deadline_source=None,
@@ -170,24 +201,34 @@ def action(root, kind, owner, operation_id=None, due_at=None, deadline_source=No
         if prior and json.loads(prior[0])["status"] == "completed" and status in {"pending", "blocked"}:
             raise WorkspaceError("Completed action cannot reopen without a separate contrary-evidence observation")
         previous = json.loads(prior[0]) if prior else {}
+        if previous.get("status") == "selected" and (status == "waiting" or selected_contact and selected_contact != previous.get("selected_contact")):
+            raise WorkspaceError("A chosen referral route cannot silently become another request")
         value = {**previous, **details, "id":key, "kind":kind, "owner":owner, "operation_id":operation_id,
             "due_at":due_at, "deadline_source":deadline_source, "time_zone":load_workspace(root)["time_zone"],
             "status":status, "evidence":evidence, "blocker":blocker, "updated_at":now()}
         _no_secrets(value)
         db.execute("INSERT INTO actions VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET owner=excluded.owner,status=excluded.status,due_at=excluded.due_at,payload=excluded.payload",
                    (key, operation_id, owner, status, due_at, store.encode(value)))
+        _effect(root,'action_recorded',key,value,previous)
         return value
 
 
 def referral(root, opportunity_id, contacts=None, status="waiting", selected_contact=None,
-             evidence=None, direct_reason=None, policy=None, clock=None):
+             evidence=None, direct_reason=None, policy=None, clock=None, policy_id=None):
     with locked_workspace(root):
         db = store.connection(root)
         opp_row = db.execute("SELECT payload FROM opportunities WHERE id=?", (opportunity_id,)).fetchone()
         if not opp_row:
             raise WorkspaceError("Unknown referral opportunity")
         opp = json.loads(opp_row[0])
-        rules = {"max_contacts":3, "business_days":3, "fresh_hours":48, **(policy or {})}
+        from .records import load_record
+        approved = load_record(root,"campaign-policy",policy_id).get("referral_policy",{}) if policy_id else {}
+        company_row = db.execute("SELECT payload FROM companies WHERE id=?", (opp["company_id"],)).fetchone()
+        company_data = json.loads(company_row[0])
+        company_rules = company_data.get("referral_policy",{}) if company_data.get("referral_evidence") else {}
+        rules = {"max_contacts":3, "business_days":3, "fresh_hours":48, "fresh_direct":True, **approved, **company_rules}
+        if policy and any(policy.get(k,rules[k]) != rules[k] for k in rules):
+            raise WorkspaceError("Referral overrides belong in approved campaign or verified company rules")
         if any(type(rules[k]) is not int or rules[k] < 1 for k in ("max_contacts", "business_days", "fresh_hours")):
             raise WorkspaceError("Referral limits must be positive integers")
         prior = db.execute("SELECT payload FROM referral_waits WHERE opportunity_id=?", (opportunity_id,)).fetchone()
@@ -214,13 +255,18 @@ def referral(root, opportunity_id, contacts=None, status="waiting", selected_con
             until = min(until, cutoff)
         if status not in {"waiting", "selected", "direct"}:
             raise WorkspaceError("Unsupported referral state")
+        if company_rules.get("application_first") and status == "waiting":
+            status="direct"
+            direct_reason="employer_requires_application_first"
+            evidence=company_data["referral_evidence"]
         if status == "selected" and (selected_contact not in people or not evidence):
             raise WorkspaceError("Selected referral needs a tracked contact and observed evidence")
         if status == "direct":
             published = datetime.fromisoformat(opp["published_at"]) if opp.get("published_at") else None
             fresh = bool(published and published.tzinfo and opp.get("publication_evidence") and timedelta(0) <= current-published <= timedelta(hours=rules["fresh_hours"]))
             elapsed = bool(previous.get("wait_until") and current >= datetime.fromisoformat(previous["wait_until"]))
-            if not direct_reason or not evidence or not (fresh or elapsed or opp.get("deadline") and until <= current):
+            unavailable = direct_reason in {"no_relevant_contacts", "employer_requires_application_first"}
+            if not direct_reason or not evidence or not (fresh and rules["fresh_direct"] or elapsed or opp.get("deadline") and until <= current or unavailable):
                 raise WorkspaceError("Direct exception needs verified freshness, elapsed wait or deadline and a documented reason")
         value = {"opportunity_id":opportunity_id, "contacts":people, "status":status,
             "started_at":previous.get("started_at", current.isoformat()),
@@ -228,7 +274,52 @@ def referral(root, opportunity_id, contacts=None, status="waiting", selected_con
             "evidence":evidence, "direct_reason":direct_reason, "policy":rules}
         _no_secrets(value)
         db.execute("INSERT INTO referral_waits VALUES(?,?) ON CONFLICT(opportunity_id) DO UPDATE SET payload=excluded.payload", (opportunity_id, store.encode(value)))
+        _effect(root,'referral_recorded',opportunity_id,value,previous)
         return value
+
+
+def review(root, campaign_id, threshold, response, actor):
+    from .campaign import require_action_authority
+    require_action_authority(root,actor,"change_campaign")
+    if not response:
+        raise WorkspaceError("Direction review needs the person's response")
+    with locked_workspace(root):
+        db=store.connection(root)
+        row=db.execute("SELECT payload FROM campaign_reviews WHERE campaign_id=? AND threshold=?",(campaign_id,threshold)).fetchone()
+        if not row:
+            raise WorkspaceError("Unknown direction review boundary")
+        value={**json.loads(row[0]),"response":response,"actor":actor,"answered_at":now(),"status":"answered"}
+        _no_secrets(value)
+        db.execute("UPDATE campaign_reviews SET status='answered',payload=? WHERE campaign_id=? AND threshold=?",(store.encode(value),campaign_id,threshold))
+        _effect(root,'direction_review_answered',campaign_id,value)
+        return value
+
+
+def evidence(root, terms):
+    """Return current references before an agent labels experience a gap."""
+    from .records import list_records, validate_claim
+    if not isinstance(terms,list) or not terms or len(terms)>30 or any(not isinstance(t,str) or not t.strip() for t in terms):
+        raise WorkspaceError("Evidence lookup needs 1..30 nonempty skill terms")
+    facts=list_records(root,"fact");claims=list_records(root,"claim")
+    superseded={f.get("supersedes") for f in facts}
+    normalize=lambda value:re.sub(r"[^\w]+","",str(value).casefold())
+    result=[]
+    for term in terms:
+        found=[];absent=[]
+        for fact in facts:
+            if fact['id'] in superseded:continue
+            if normalize(term) in normalize(str(fact.get('field',''))+' '+str(fact.get('value',''))):
+                ref={"kind":"fact","id":fact['id'],"version":fact['version']}
+                if fact['status'] in {'candidate_confirmed','document_supported'}:found.append(ref)
+                elif fact['status']=='confirmed_absent':absent.append(ref)
+        for claim in claims:
+            if normalize(term) in normalize(claim.get('safe_wording','')):
+                try:validate_claim(root,claim)
+                except ValueError:continue
+                found.append({"kind":"claim","id":claim['id'],"version":claim['version']})
+        result.append({"term":term,"status":"conflicting" if found and absent else "evidence_found" if found else "confirmed_absent" if absent else "unknown",
+                       "references":found+absent,"next_action":"Inspect references and proficiency context; text matching alone does not establish direct expertise."})
+    return result
 
 
 def query(root, kind, entity_id=None, limit=25):
@@ -259,6 +350,12 @@ def report(root):
             "receipt_count":db.execute("SELECT COUNT(DISTINCT application_id) FROM receipts").fetchone()[0],
             "by_source":[dict(row) for row in db.execute("SELECT json_extract(o.payload,'$.resource_class') AS source,COUNT(*) AS submitted FROM applications a JOIN opportunities o ON o.id=a.opportunity_id WHERE a.submitted_at IS NOT NULL GROUP BY source")],
             "by_company":[dict(row) for row in db.execute("SELECT c.id,c.name,c.parent_id,COUNT(*) AS submitted FROM applications a JOIN opportunities o ON o.id=a.opportunity_id JOIN companies c ON c.id=o.company_id WHERE a.submitted_at IS NOT NULL GROUP BY c.id")],
+            'by_company_group':[dict(row) for row in db.execute("WITH RECURSIVE groups(id,root_id) AS (SELECT id,id FROM companies WHERE parent_id IS NULL UNION ALL SELECT c.id,g.root_id FROM companies c JOIN groups g ON c.parent_id=g.id) SELECT g.root_id,c.name,COUNT(*) AS submitted FROM applications a JOIN opportunities o ON o.id=a.opportunity_id JOIN groups g ON g.id=o.company_id JOIN companies c ON c.id=g.root_id WHERE a.submitted_at IS NOT NULL GROUP BY g.root_id")],
+            "by_route":[dict(row) for row in db.execute("SELECT json_extract(payload,'$.route_snapshot.route') AS route,COUNT(DISTINCT application_id) AS submitted FROM operations WHERE stage='submission_observed' AND application_id IS NOT NULL GROUP BY route")],
+            "milestones":[dict(row) for row in db.execute("SELECT milestone.value AS milestone,COUNT(DISTINCT COALESCE(operation.application_id,operation.opportunity_id)) AS processes FROM operations operation,json_each(operation.payload,'$.milestones') milestone GROUP BY milestone.value")],
+            'outbound_elapsed_seconds':db.execute("SELECT SUM(json_extract(payload,'$.elapsed_seconds')) FROM attempts").fetchone()[0],
+            'cohort_age_days':[dict(row) for row in db.execute("SELECT CAST(julianday('now')-julianday(submitted_at) AS INTEGER) AS observed_age_days,COUNT(*) AS applications FROM applications WHERE submitted_at IS NOT NULL GROUP BY observed_age_days")],
             "pending_actions":store.payloads(root, "actions", " WHERE status IN ('pending','blocked') ORDER BY due_at IS NULL,due_at LIMIT 25"),
             "direction_reviews":store.payloads(root, "campaign_reviews", " WHERE status='pending' ORDER BY campaign_id,threshold"),
+            "referral_waits":store.payloads(root,"referral_waits"," WHERE json_extract(payload,'$.status')='waiting' ORDER BY json_extract(payload,'$.wait_until') LIMIT 25"),
             "observation_limits":"Counts are observed records; receipt absence is not failure. Interview cohorts need an explicit observation window. Effort is unknown unless observed."}

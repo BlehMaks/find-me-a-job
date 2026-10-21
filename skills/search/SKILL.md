@@ -23,6 +23,10 @@ Queue high-value viable opportunities first using approved priorities, deadlines
 
 ## Outputs
 
-Keep an inspectable opportunity ledger with screening reasons, matched evidence/gaps, source/confidence, deadline/timezone, official application route and next step. Report actual newly observed submissions separately from recovered receipts and prepared-but-blocked items. Follow `skills/applications/SKILL.md` for execution and `scheduling.md` for recurring work.
+Use the SQLite opportunity/company registry and runtime queries (`docs/tracking.md`); supported commands record their own effects. Keep ongoing summaries short and derived, without a second text catalogue or model helper for logging. Before discovery, handle current employer replies, invitations and deadlines. Preserve approved broad positioning and expansion: unexpected relevant opportunities may be useful. At each runtime-created 50-submission review ask whether the direction remains appropriate; changes require confirmation and do not rewrite history.
+
+Before rejecting a plausible opportunity for a missing key skill, reread relevant current facts/claims (or use `track evidence`). Unknown is not confirmed absence; finding a term is not proof of direct expertise. Preserve direct/transfer/unknown distinctions and avoid uncalibrated percentage scores as interview probabilities.
+
+Keep screening reasons, evidence/gaps, source/confidence, deadline/timezone, official route and next step in the opportunity record. Report actual new submissions separately from recovered history and blocked preparation. Follow `skills/applications/SKILL.md` for execution and its scheduling instructions for recurring work.
 
 LinkedIn account ownership does not imply automation permission or no restriction risk. Use only the approved current integration within host and platform constraints; do not evade limits or create replacement accounts after restriction.

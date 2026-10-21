@@ -98,20 +98,28 @@ def _connect(root):
 
 
 @contextmanager
-def transaction(root):
+def transaction(root, allow_migration=False):
     key = str(Path(root).resolve())
     active = getattr(_local, "connections", {})
     if key in active:
         yield active[key]
         return
-    if load_workspace(root)["schema_version"] != 2:
+    config = load_workspace(root)
+    if config["schema_version"] != 2:
         raise WorkspaceError("Legacy workspace needs: fmj storage migrate --apply --workspace PATH")
+    if config.get("migration_pending") and not allow_migration:
+        raise WorkspaceError("Migration was interrupted; rerun storage migrate --apply before work")
+    path = workspace_path(root,"career.sqlite3")
+    if config.get("storage_initialized") and (not path.exists() or path.stat().st_size == 0):
+        raise WorkspaceError("Operational database is missing; restore a verified backup before work")
     db = _connect(root)
     try:
         schema_version = db.execute("PRAGMA user_version").fetchone()[0]
         if schema_version not in {0, 1}:
             raise WorkspaceError("Unsupported operational schema version")
         if schema_version == 0:
+            if db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchone():
+                raise WorkspaceError("Unrecognized database; original data was not changed")
             db.executescript(SCHEMA)
             db.execute("PRAGMA user_version=1")
         db.execute("BEGIN IMMEDIATE")
@@ -128,6 +136,8 @@ def transaction(root):
         _local.connections = active
         yield db
         db.commit()
+        if not config.get("storage_initialized") and not config.get("migration_pending"):
+            atomic_write_json(workspace_path(root,"workspace.json"),{**config,"storage_initialized":True})
     except BaseException:
         db.rollback()
         raise
@@ -200,7 +210,7 @@ def migrate(root, apply=False):
 def _migrate(root, apply):
     with locked_workspace(root, transactional=False):
         config = load_workspace(root)
-        if config["schema_version"] == 2:
+        if config["schema_version"] == 2 and not config.get("migration_pending"):
             return {"status":"already_current", "workspace_id":config["id"]}
         legacy = inspect_legacy(root)
         summary = {"status":"validated_dry_run", "events":len(legacy["events"]),
@@ -216,31 +226,62 @@ def _migrate(root, apply):
             if os.name != "nt":
                 archive.chmod(0o600)
         # No external operation runs while the shared writer lock is held.
-        atomic_write_json(workspace_path(root, "workspace.json"), {**config, "schema_version":2})
+        atomic_write_json(workspace_path(root, "workspace.json"), {**config, "schema_version":2, "migration_pending":True,"storage_initialized":False})
         try:
-            with transaction(root) as db:
-                from .tracking import import_operation
-                for operation in legacy["operations"]:
-                    import_operation(root, operation)
-                for event in legacy["events"]:
-                    insert_event(root, event)
-                if db.execute("SELECT COUNT(*) FROM operations").fetchone()[0] != len(legacy["operations"]) or db.execute("SELECT COUNT(*) FROM events").fetchone()[0] != len(legacy["events"]):
-                    raise WorkspaceError("Migration counts differ; originals preserved")
-                for relative, digest in legacy["sources"]:
-                    db.execute("INSERT INTO imports VALUES(?,?)", (relative, digest))
-                for key, filename in (("campaign", "campaign.json"), ("telegram", "telegram-state.json")):
-                    path = workspace_path(root, "runtime", filename)
-                    if path.exists():
-                        save_state(root, key, json.loads(path.read_text()))
-                for path in workspace_path(root, "runtime", "telegram-questions").glob("*.json"):
-                    save_state(root, "telegram-question:"+path.stem, json.loads(path.read_text()))
-                if db.execute("PRAGMA foreign_key_check").fetchall():
-                    raise WorkspaceError("Migration relationships failed validation")
+            with transaction(root,allow_migration=True) as db:
+                completed=db.execute("SELECT value FROM metadata WHERE key='migration_complete'").fetchone()
+                if completed:
+                    if dict(db.execute("SELECT path,sha256 FROM imports")) != dict(legacy["sources"]):
+                        raise WorkspaceError("Legacy sources changed after migration; preserve and review both histories")
+                else:
+                    _import_sources(root,db,legacy)
+            atomic_write_json(workspace_path(root,"workspace.json"),{**config,"schema_version":2,"migration_pending":False,"storage_initialized":True})
         except BaseException:
             atomic_write_json(workspace_path(root, "workspace.json"), config)
             raise
         return {**summary, "status":"migrated", "backup":str(archive)}
 
+
+def _import_sources(root, db, legacy):
+    from .tracking import import_operation
+    known_ids={operation['id'] for operation in legacy['operations']}
+    delivery_types={'dispatch_started','native_dispatch_authorized','delivery_unknown','submission_observed','not_sent','delivery_reconciled','acknowledgement_matched'}
+    for event in legacy['events']:
+        if event['type'] in delivery_types and event.get('operation_id') not in known_ids:
+            raise WorkspaceError('Legacy delivery event has no operation snapshot; reconcile before migration')
+    for operation in legacy["operations"]:
+        snapshot=dict(operation)
+        submitted=snapshot['stage']=='submission_observed'
+        latest=snapshot['stage']
+        for event in legacy['events']:
+            if event.get('operation_id')!=snapshot['id']:continue
+            stage={'dispatch_started':'delivery_unknown','native_dispatch_authorized':'delivery_unknown',
+                'delivery_unknown':'delivery_unknown','submission_observed':'submission_observed',
+                'acknowledgement_matched':'submission_observed','not_sent':'not_sent'}.get(event['type'])
+            if event['type']=='delivery_reconciled':stage=event.get('data',{}).get('outcome')
+            if stage:
+                latest=stage
+                if stage=='submission_observed':
+                    submitted=True
+                    snapshot['historical_submission_at']=event['timestamp']
+        snapshot['migration_source_stage']=snapshot['stage']
+        snapshot['stage']='delivery_unknown' if latest in {'dispatching','delivery_unknown'} else 'submission_observed' if submitted else latest
+        import_operation(root, snapshot)
+    for event in legacy["events"]:
+        insert_event(root, event)
+    if db.execute("SELECT COUNT(*) FROM operations").fetchone()[0] != len(legacy["operations"]) or db.execute("SELECT COUNT(*) FROM events").fetchone()[0] != len(legacy["events"]):
+        raise WorkspaceError("Migration counts differ; originals preserved")
+    for relative, digest in legacy["sources"]:
+        db.execute("INSERT INTO imports VALUES(?,?)", (relative, digest))
+    for key, filename in (("campaign", "campaign.json"), ("telegram", "telegram-state.json")):
+        path = workspace_path(root, "runtime", filename)
+        if path.exists():
+            save_state(root, key, json.loads(path.read_text()))
+    for path in workspace_path(root, "runtime", "telegram-questions").glob("*.json"):
+        save_state(root, "telegram-question:"+path.stem, json.loads(path.read_text()))
+    if db.execute("PRAGMA foreign_key_check").fetchall():
+        raise WorkspaceError("Migration relationships failed validation")
+    db.execute("INSERT INTO metadata VALUES('migration_complete','1')")
 
 def insert_event(root, event):
     connection(root).execute("INSERT INTO events VALUES(?,?,?,?,?,?,?)", (
@@ -278,21 +319,59 @@ def restore(root, source):
             if path == workspace_path(root, "career.sqlite3"):
                 raise WorkspaceError("Restore requires a separate backup")
             candidate = sqlite3.connect("file:" + path.as_posix() + "?mode=ro", uri=True)
-            current = _connect(root)
+            database_path=workspace_path(root,'career.sqlite3')
+            missing=not database_path.exists() or database_path.stat().st_size==0
+            current = None
             try:
                 if candidate.execute("PRAGMA integrity_check").fetchone()[0] != "ok" or candidate.execute("PRAGMA foreign_key_check").fetchall():
                     raise WorkspaceError("Backup integrity validation failed")
+                expected=sqlite3.connect(':memory:')
+                try:
+                    expected.executescript(SCHEMA)
+                    signature=lambda db:{(kind,name,' '.join(sql.split()).casefold()) for kind,name,sql in db.execute("SELECT type,name,sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL")}
+                    if candidate.execute('PRAGMA user_version').fetchone()[0]!=1 or signature(candidate)!=signature(expected):
+                        raise WorkspaceError('Backup has an incompatible operational schema')
+                finally:
+                    expected.close()
                 binding = candidate.execute("SELECT value FROM metadata WHERE key='workspace_id'").fetchone()
                 if not binding or binding[0] != load_workspace(root)["id"]:
                     raise WorkspaceError("Backup belongs to another workspace")
-                for row in current.execute("SELECT id,stage,payload FROM operations"):
+                version=candidate.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
+                if not version or version[0]!='1':
+                    raise WorkspaceError('Backup operational version is incompatible')
+                from .records import _digest,validate_record
+                previous=None
+                for sequence,(payload,) in enumerate(candidate.execute('SELECT payload FROM events ORDER BY sequence'),1):
+                    event=json.loads(payload);digest=event.pop('hash',None)
+                    if event.get('sequence')!=sequence or event.get('previous_hash')!=previous or _digest(event)!=digest or event.get('workspace_id')!=binding[0]:
+                        raise WorkspaceError('Backup event chain is corrupted')
+                    validate_record('event',event)
+                    previous=digest
+                for operation_id,payload in candidate.execute('SELECT id,payload FROM operations'):
+                    operation=json.loads(payload)
+                    if operation.get('id')!=operation_id or operation.get('workspace_id')!=binding[0] or operation.get('intent_hash')!=_digest(operation['intent']):
+                        raise WorkspaceError('Backup operation intent is corrupted')
+                current = _connect(root) if not missing else None
+                for row in current.execute("SELECT id,stage,payload FROM operations") if current else []:
                     old = candidate.execute("SELECT stage,payload FROM operations WHERE id=?", (row[0],)).fetchone()
                     if row[1] in {"dispatching", "delivery_unknown"} or row[1] == "submission_observed" and (not old or old != (row[1], row[2])):
                         raise WorkspaceError("Restore would erase a later observed or uncertain send; reconcile first")
-                before = workspace_path(root, "runtime", "before-restore-" + now().replace(":", "-") + ".sqlite3")
-                backup(root, before)
+                before = None
+                if current:
+                    before = workspace_path(root, "runtime", "before-restore-" + now().replace(":", "-") + ".sqlite3")
+                    backup(root, before)
+                else:
+                    current=_connect(root)
                 candidate.backup(current)
             finally:
-                current.close()
+                if current:current.close()
                 candidate.close()
-            return {"status":"restored", "preserved_current":str(before)}
+            if missing:
+                with transaction(root) as db:
+                    config=load_workspace(root)
+                    state_value=state(root,'campaign',{'pauses':[],'blockers':[],'authority':{}})
+                    state_value['pauses'].append({'actor':config['operator'] or config['owner'],'owner':'operator',
+                        'reason':'Database recovered after loss; reconcile external sends since backup before resuming','created_at':now()})
+                    save_state(root,'campaign',state_value)
+            return {"status":"restored", "preserved_current":str(before) if before else None,
+                    "reconciliation_required":missing}

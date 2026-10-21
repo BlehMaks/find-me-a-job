@@ -14,6 +14,10 @@ After actually testing the selected browser/profile, save private evidence and r
 
 A bundle reference has this workspace's `workspace_id`, private `bundle_dir` and final `artifact_hashes` from document finalization. Document-bearing actions must pass current document gates. Document-free messages may omit a CV; actual text and exact recipients still need preflight.
 
+Use `thread_id`, `turn_id` and `reply_to` for each distinct message turn. Applications keep one identity after URL/requisition enrichment or purpose changes. `campaign refresh --operation ID --input changes.json` retains the previous unsent revision; submitted/uncertain sends cannot be refreshed. Selected answers require `question_context`: field to exact `question`, `scope` and `answer_id`. Actual form context and values must match.
+
+Build with `--workspace` and the complete `--profile`. Production checks require complete current field dependencies. Select the exact approved `standard.pdf` or `inactive.pdf` with attachment `role: cv`, path and hash. Supporting originals keep separate roles. Upload capability needs its own observed check. See [tracking](tracking.md) for registries, referral waits, observations and recovery.
+
 Immediately before sending, observe actual `fields`, `recipient`, `cc`, `bcc`, `attachments`, attachment `constraints` and `validation_errors`. For replies with quoted history, record `quoted_history` and `new_text_position: "above_quote"`. They must match prepared intent. Recheck real tool permissions: a ticket does not override a tool-required handoff.
 
 Call `campaign begin --operation ID --input actual-form.json --actor AGENT`. On success it returns a ticket and exact intent. Perform that one native action, then `campaign complete --operation ID --input outcome.json`; its input has `ticket`, `outcome` and observed `evidence`. Outcomes are `submission_observed`, `not_sent` or `delivery_unknown`. Never infer success from a timeout or absence of an error.

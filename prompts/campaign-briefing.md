@@ -10,4 +10,6 @@ Obtain approval of the expanded **title/resource strategy**, hard/flexible filte
 
 Record a versioned policy with effective date, source of each rule and supersession. Set one-off or scheduled runs, summary cadence, immediate meaningful-event notifications and a small task-tab budget. Review current capabilities and mandatory handoffs. A missing login should not remove a good opportunity; save it for recovery.
 
+Preserve broad approved positioning rather than imposing narrow role lanes. Review direction after each runtime-created 50-submission boundary: relevance, interesting unexpected directions and desired changes. This does not automatically pause or modify the campaign. Configure referral-before-application with finite parallel outreach and verified freshness/deadline exceptions. Normal commands record their effects automatically; agree on useful summaries without duplicate narrative logging or a model call per action.
+
 Human-reserved decisions: appointments, final compensation/terms, offers, withdrawal, paid actions and material new obligations. In managed mode campaign setting changes belong to the operator. Existing factual answers remain valid within their scope; policy changes do not rewrite submitted history.

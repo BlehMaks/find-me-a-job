@@ -110,6 +110,54 @@ class StoreTests(unittest.TestCase):
         self.assertEqual(1, load_workspace(self.root)['schema_version'])
         self.assertFalse((self.root/'career.sqlite3').exists())
 
+    def test_missing_database_never_silently_starts_an_empty_history(self):
+        (self.root/'career.sqlite3').unlink()
+        with self.assertRaisesRegex(WorkspaceError,'missing'):
+            tracking.report(self.root)
+        self.assertFalse((self.root/'career.sqlite3').exists())
+
+    def test_committed_migration_with_interrupted_cutover_recovers_once(self):
+        self.make_legacy()
+        store.migrate(self.root,apply=True)
+        count=len(read_events(self.root))
+        config=load_workspace(self.root)
+        atomic_write_json(self.root/'workspace.json',{**config,'migration_pending':True,'storage_initialized':False})
+        with self.assertRaisesRegex(WorkspaceError,'interrupted'):
+            read_events(self.root)
+        self.assertEqual('migrated',store.migrate(self.root,apply=True)['status'])
+        self.assertEqual(count,len(read_events(self.root)))
+
+    def test_restore_missing_database_recovers_with_reconciliation_pause(self):
+        snapshot=self.root/'runtime'/'recover.sqlite3'
+        store.backup(self.root,snapshot)
+        (self.root/'career.sqlite3').unlink()
+        self.assertTrue(store.restore(self.root,snapshot)['reconciliation_required'])
+        from fmj.campaign import status
+        self.assertTrue(status(self.root)['paused'])
+
+    def test_malformed_same_workspace_backup_cannot_replace_live_storage(self):
+        import sqlite3
+        snapshot=self.root/'runtime'/'malformed.sqlite3'
+        with sqlite3.connect(snapshot) as db:
+            db.executescript('CREATE TABLE metadata(key,value);CREATE TABLE operations(id,stage,payload);')
+            db.execute('INSERT INTO metadata VALUES(?,?)',('workspace_id',load_workspace(self.root)['id']))
+        with self.assertRaisesRegex(WorkspaceError,'schema'):
+            store.restore(self.root,snapshot)
+        self.assertEqual(0,tracking.report(self.root)['applications'])
+
+    def test_migration_uses_submission_event_over_stale_ready_snapshot(self):
+        op=create_operation(self.root,self.opp,'campaign')
+        append_event(self.root,'dispatch_started',operation_id=op['id'])
+        append_event(self.root,'submission_observed',operation_id=op['id'],evidence='Synthetic portal acknowledgement')
+        for event in read_events(self.root):
+            atomic_write_json(self.root/'events'/f"{event['sequence']:08d}.json",event)
+        atomic_write_json(self.root/'operations'/(op['id']+'.json'),op)
+        atomic_write_json(self.root/'workspace.json',{**load_workspace(self.root),'schema_version':1})
+        (self.root/'career.sqlite3').unlink()
+        store.migrate(self.root,apply=True)
+        self.assertEqual('submission_observed',load_operation(self.root,op['id'])['stage'])
+        self.assertEqual(1,tracking.report(self.root)['applications'])
+
     def test_alias_conflict_rolls_back_cutover(self):
         operation, _ = self.make_legacy()
         import copy

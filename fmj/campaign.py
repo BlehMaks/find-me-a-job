@@ -158,7 +158,7 @@ def operations(root):
 def create_operation(root, opportunity, policy_id, bundle=None, answers=None, recipient=None,
                      action="apply", actor="owner", attachments=None, form_values=None,
                      purpose="application", contact_identity=None, thread_id=None,
-                     turn_id=None, reply_to=None, refresh=False):
+                     turn_id=None, reply_to=None, refresh=False, question_context=None):
     """Persist immutable versions before any dispatch; repeated identity returns intent."""
     if action not in SEND_ACTIONS:
         raise AuthorityError("Unsupported outbound action; human decisions cannot be dispatched")
@@ -171,6 +171,9 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
         registered = tracking.opportunity(root, opportunity)
         opp_id = registered["id"]
         opportunity = registered
+        if action == "apply" and policy.get("referral_policy",{}).get("enabled",True) and opportunity.get("referral_available") is True and opportunity.get("kind", "employment") not in {"academic_host", "grant", "program"}:
+            if not store.rows(root,"SELECT opportunity_id FROM referral_waits WHERE opportunity_id=?",(opp_id,)):
+                tracking.referral(root,opp_id,policy_id=policy_id)
         recipient_id = contact_key(recipient.get("channel"), recipient.get("address"), contact_identity) if recipient else None
         app_id, conversation_id = None, None
         if action in {"apply", "submit_proposal"}:
@@ -181,6 +184,10 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
                 company_id=registered["company_id"], refused=recipient.get("refused", False))
             if person.get("refused"):
                 raise CampaignBlocked("Recipient refused further contact")
+            if purpose in {"referral", "referral_request"}:
+                if store.rows(root,"SELECT id FROM applications WHERE opportunity_id=? AND submitted_at IS NOT NULL",(opp_id,)):
+                    raise CampaignBlocked("Application already submitted; do not request a pre-application referral link")
+                tracking.referral(root,opp_id,contacts=[recipient_id],policy_id=policy_id)
             conversation_id = tracking.conversation(root, person, opp_id, policy_id, thread_id)
             identity = _digest([conversation_id, turn_id or action + "-initial"])
         if action in {"send_message", "connect", "follow_up"} and not recipient_id:
@@ -203,10 +210,20 @@ def create_operation(root, opportunity, policy_id, bundle=None, answers=None, re
             if current["confirmation"] not in {"confirmed", "confirmed_absent"}:
                 raise CampaignBlocked("Unknown or conflicting form answers need clarification")
             snapshots.append(current)
+        if snapshots and not question_context:
+            raise CampaignBlocked("Selected answers need the actual field question/context mapping")
+        for field, context in (question_context or {}).items():
+            if field not in (form_values or {}) or not context.get("question"):
+                raise CampaignBlocked("Question context must identify a prepared field and exact question")
+            if context.get("answer_id"):
+                answer=next((item for item in snapshots if item["id"]==context["answer_id"]),None)
+                if not answer or answer["question"]!=context["question"] or answer["scope"]!=context.get("scope"):
+                    raise CampaignBlocked("Question context does not match its selected confirmed answer")
         intent = {"opportunity":deepcopy(opportunity), "opportunity_id":opp_id, "policy":policy,
                   "bundle":deepcopy(bundle), "answers":snapshots, "recipient":deepcopy(recipient),
                   "recipient_id":recipient_id, "action":action, "purpose":purpose,
                   "thread_id":thread_id, "turn_id":turn_id, "reply_to":reply_to,
+                  "question_context":deepcopy(question_context or {}),
                   "attachments":deepcopy(attachments or []), "form_values":deepcopy(form_values or {})}
         previous = store.payloads(root, "operations", " WHERE " + ("application_id=?" if app_id else "identity=?") + " ORDER BY revision DESC,created_at DESC LIMIT 1", (app_id or identity,))
         revision = 1
@@ -257,7 +274,7 @@ def refresh_operation(root, operation_id, changes, actor="owner"):
         if old["stage"] not in {"ready", "not_sent"}:
             raise CampaignBlocked("Only unsent preparation can be refreshed")
         intent = old["intent"]
-        arguments = {key:deepcopy(intent[key]) for key in ("opportunity", "bundle", "answers", "recipient", "action", "attachments", "form_values", "purpose", "thread_id", "turn_id", "reply_to") if key in intent}
+        arguments = {key:deepcopy(intent[key]) for key in ("opportunity", "bundle", "answers", "recipient", "action", "attachments", "form_values", "purpose", "thread_id", "turn_id", "reply_to", "question_context") if key in intent}
         arguments.update(policy_id=intent["policy"]["id"])
         arguments.update(changes)
         arguments.pop("refresh", None)
@@ -288,6 +305,7 @@ def status(root):
         return {"schema_version":1, "workspace_id":load_workspace(root)["id"], "paused":bool(state["pauses"]),
                 "pauses":deepcopy(state["pauses"]), "blockers":deepcopy(_active_blockers(state)),
                 "next_actions":summary["pending_actions"], "direction_reviews":summary["direction_reviews"],
+                "referral_waits":summary["referral_waits"],
                 "operations":[{"id":item["id"], "action":item["intent"]["action"], "stage":item["stage"], "acknowledgement":item["acknowledgement"], "lifecycle":item["lifecycle"]} for item in items],
                 "operations_limit":25,
                 "submission_count":summary["applications"],
@@ -422,6 +440,13 @@ def _final_preflight(root, operation, actor, actual_form, verify_documents, cont
     if policy["version"] != operation["intent"]["policy"]["version"]:
         raise CampaignBlocked("Policy changed after operation preparation")
     require_action_authority(root, actor, operation["intent"]["action"], policy)
+    if operation["intent"]["action"] == "apply":
+        waits=store.payloads(root,"referral_waits"," WHERE opportunity_id=?",(operation["opportunity_id"],))
+        if waits and waits[0]["status"] == "waiting":
+            if datetime.now(timezone.utc) < datetime.fromisoformat(waits[0]["wait_until"]):
+                raise CampaignBlocked("Referral wait is active; prepare documents or continue other opportunities")
+            tracking.referral(root,operation["opportunity_id"],status="direct",direct_reason="wait_elapsed",
+                evidence={"observed_at":now(),"reason":"Finite referral wait elapsed"},policy_id=policy["id"])
     for answer in operation["intent"]["answers"]:
         current = confirmed_answer(root, answer["question"], answer["scope"])
         if current["id"] != answer["id"] or current["version"] != answer["version"]:
@@ -432,6 +457,10 @@ def _final_preflight(root, operation, actor, actual_form, verify_documents, cont
         raise CampaignBlocked("Complex proposals require substantive human approval")
     if operation["intent"]["recipient"] and operation["intent"]["recipient"].get("refused"):
         raise CampaignBlocked("Recipient refused further contact")
+    if operation["intent"].get("recipient_id"):
+        contacts=store.payloads(root,"contacts"," WHERE id=?",(operation["intent"]["recipient_id"],))
+        if contacts and contacts[0].get("refused"):
+            raise CampaignBlocked("Recipient refused further contact after preparation")
     if not controlled and verify_documents is None:
         raise CampaignBlocked("Production dispatch requires a live document/permission verifier")
     if verify_documents is not None and verify_documents(deepcopy(operation["intent"])) is not True:
@@ -440,6 +469,8 @@ def _final_preflight(root, operation, actor, actual_form, verify_documents, cont
         raise CampaignBlocked("Inspect actual form fields and recipients immediately before dispatch")
     if actual_form.get("fields", {}) != operation["intent"]["form_values"]:
         raise CampaignBlocked("Actual form values differ from prepared intent")
+    if actual_form.get("question_context", {}) != operation["intent"].get("question_context", {}):
+        raise CampaignBlocked("Actual form questions or context differ from prepared answers")
     for field in ("cc", "bcc"):
         if actual_form.get(field, []) != (operation["intent"]["recipient"] or {}).get(field, []):
             raise CampaignBlocked("Unexpected copied recipients; inspect Reply all")
