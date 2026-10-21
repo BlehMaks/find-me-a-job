@@ -158,3 +158,5 @@
 !/install/wizard.py
 !/scripts/build_installer.py
 !/.github/workflows/installer.yml
+!/scripts/macos_dmg.py
+!/install/macos-guide.html

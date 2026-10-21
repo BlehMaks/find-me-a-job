@@ -125,3 +125,5 @@ include tests/test_installer.py
 include install/wizard.py
 include scripts/build_installer.py
 include .github/workflows/installer.yml
+include scripts/macos_dmg.py
+include install/macos-guide.html
