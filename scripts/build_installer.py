@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,7 @@ import sysconfig
 import tarfile
 import tempfile
 import tkinter
+from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = 'FindMeAJob-Setup'
@@ -34,11 +36,29 @@ def collect_notices(destination):
     root = tkinter.Tk()
     root.withdraw()
     libraries = {'Tcl': Path(root.tk.call('info', 'library')), 'Tk': Path(root.tk.eval('set tk_library'))}
+    versions = {'Tcl': root.tk.call('info', 'patchlevel'), 'Tk': root.tk.call('package', 'provide', 'Tk')}
     root.destroy()
+    origins = {}
     for name, library in libraries.items():
         candidates = [parent / 'license.terms' for parent in (library, *list(library.parents)[:5])]
-        license_path = license_file(candidates)
-        shutil.copyfile(license_path, destination / (name + '-license.terms'))
+        target = destination / (name + '-license.terms')
+        local = next((path for path in candidates if path.is_file()), None)
+        if local:
+            shutil.copyfile(local, target)
+        else:
+            # Official Windows Python omits separate Tcl/Tk license files.
+            version = str(versions[name])
+            if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+', version):
+                raise RuntimeError('Unsupported Tcl/Tk version; provide its reviewed license locally')
+            tag = 'core-' + version.replace('.', '-')
+            url = 'https://raw.githubusercontent.com/tcltk/' + name.lower() + '/' + tag + '/license.terms'
+            with urlopen(url, timeout=30) as response:
+                data = response.read(100_001)
+            if len(data) > 100_000 or b'permission to use, copy, modify, distribute' not in data:
+                raise RuntimeError('Official Tcl/Tk license could not be verified')
+            target.write_bytes(data)
+            origins[name] = {'version': version, 'url': url, 'sha256': hashlib.sha256(data).hexdigest()}
+    (destination / 'sources.json').write_text(json.dumps(origins, indent=2), encoding='utf-8')
     package = importlib.metadata.distribution('pyinstaller')
     copying = next(path for path in package.files if str(path).endswith('licenses/COPYING.txt'))
     shutil.copyfile(package.locate_file(copying), destination / 'PyInstaller-COPYING.txt')
