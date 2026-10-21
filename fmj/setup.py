@@ -61,6 +61,7 @@ def main():
     parser.add_argument('--interface', choices=['desktop', 'cli'], required=True)
     args = parser.parse_args()
     text, path = handoff(args.workspace, args.source, args.interface)
+    sys.stdout.reconfigure(encoding='utf-8')
     print(text)
     print(f'Private setup instructions saved to: {path}')
 

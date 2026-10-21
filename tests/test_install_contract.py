@@ -296,7 +296,7 @@ class DesktopHandoffTests(unittest.TestCase):
             create_workspace(root, agent='claude')
             config = (root / 'workspace.json').read_bytes()
             text, path = handoff(root, ROOT, 'desktop')
-            self.assertEqual(path.read_text(), text)
+            self.assertEqual(path.read_text(encoding='utf-8'), text)
             self.assertIn('Code tab', text)
             self.assertIn(str(root), text)
             self.assertIn(str(ROOT / 'AGENTS.md'), text)
@@ -309,6 +309,12 @@ class DesktopHandoffTests(unittest.TestCase):
             cli_text, _ = handoff(root, ROOT, 'cli')
             self.assertIn('fmj run', cli_text)
             self.assertNotIn('Open the source folder:', cli_text)
+            result = subprocess.run([sys.executable, '-m', 'fmj.setup', '--workspace', str(root),
+                                     '--source', str(ROOT), '--interface', 'desktop'],
+                                    env=dict(os.environ, PYTHONIOENCODING='ascii'),
+                                    capture_output=True, encoding='utf-8')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(str(root), result.stdout)
 
     def test_missing_source_instructions_rejected(self):
         from fmj.setup import handoff
