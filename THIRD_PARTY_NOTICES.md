@@ -24,3 +24,7 @@ Upstream Harness² uses Apache-2.0, but this repository does not bundle its engi
 Personalized local resume/provenance/browser instructions and proprietary host skills were not copied. The generic experience/document/application workflows are independently authored from product requirements; only rights-cleared Humanizer is vendored. Spec Kit is a development tool, not an end-user dependency or public planning payload.
 
 Local Python package builds use externally installed `setuptools` (MIT) and optionally `build` (MIT). These development tools and their distributions are not bundled. The release helper records no automatic upload; preserve upstream distribution notices if repackaging the tools themselves.
+
+## Native setup application
+
+The optional graphical setup artifacts are built with PyInstaller 6.22.3 and include their Python interpreter and Tcl/Tk GUI libraries. The build collects the actual Python license, Tcl/Tk license terms and PyInstaller COPYING (including its bootloader exception) into the application's `licenses` resources. PyInstaller licensing permits distribution of bundled applications under the application's own license subject to those terms; it does not select a license for this product. The artifacts are private pilot builds without a publisher certificate or notarization. Native dependencies such as Git, GitHub CLI, agent apps and TeX/Poppler are installed separately from their package sources; they are not embedded in the setup application. Public release still requires the owner's licensing and distribution review.

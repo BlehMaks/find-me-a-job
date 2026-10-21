@@ -122,7 +122,7 @@ class Runner:
     def stop(self):
         self.cancelled.set()
         process = self.process
-        if process is None or process.poll() is not None:
+        if process is None:
             return
         try:
             if os.name == 'nt':
@@ -130,6 +130,12 @@ class Runner:
                                capture_output=True, timeout=10)
             else:
                 os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=1)
+                except subprocess.TimeoutExpired:
+                    pass
+                # Descendants can keep stdout open after the leader has exited.
+                os.killpg(process.pid, signal.SIGKILL)
         except (ProcessLookupError, OSError, subprocess.TimeoutExpired):
             pass
 
@@ -145,8 +151,13 @@ class Runner:
                                    text=True, encoding='utf-8', errors='replace', **kwargs)
         self.process = process
         try:
+            if self.cancelled.is_set():
+                self.stop()
+                raise Cancelled('Setup stopped before the new operation could continue.')
             if timeout and not sensitive:
                 output, _ = process.communicate(timeout=timeout)
+                if process.returncode and output:
+                    self.emit(output.rstrip())
             else:
                 if sensitive:
                     # Show device codes while auth is pending, without persisting them.
@@ -159,7 +170,9 @@ class Runner:
                     self.emit(line.rstrip())
                 process.wait()
                 output = ''.join(lines)
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as error:
+            if error.output:
+                self.emit(error.output.decode('utf-8', errors='replace') if isinstance(error.output, bytes) else error.output)
             self.stop()
             process.wait()
             raise Handoff('The operation timed out. Recheck its state before retrying.') from None

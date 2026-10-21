@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+"""Build private native installer artifacts from a clean, reviewed source export."""
+import argparse
+import hashlib
+import importlib.metadata
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import sys
+import sysconfig
+import tarfile
+import tempfile
+import tkinter
+
+ROOT = Path(__file__).resolve().parents[1]
+NAME = 'FindMeAJob-Setup'
+
+
+def license_file(candidates):
+    for path in candidates:
+        if path.is_file():
+            return path
+    raise RuntimeError('Required dependency license not found; do not distribute this build.')
+
+
+def collect_notices(destination):
+    destination.mkdir()
+    python = license_file([Path(sysconfig.get_path('stdlib')) / 'LICENSE.txt',
+                           Path(sys.base_prefix) / 'LICENSE.txt', Path(sys.base_prefix) / 'LICENSE'])
+    shutil.copyfile(python, destination / 'Python-LICENSE.txt')
+    root = tkinter.Tk()
+    root.withdraw()
+    libraries = {'Tcl': Path(root.tk.call('info', 'library')), 'Tk': Path(root.tk.eval('set tk_library'))}
+    root.destroy()
+    for name, library in libraries.items():
+        candidates = [parent / 'license.terms' for parent in (library, *list(library.parents)[:5])]
+        license_path = license_file(candidates)
+        shutil.copyfile(license_path, destination / (name + '-license.terms'))
+    package = importlib.metadata.distribution('pyinstaller')
+    copying = next(path for path in package.files if str(path).endswith('licenses/COPYING.txt'))
+    shutil.copyfile(package.locate_file(copying), destination / 'PyInstaller-COPYING.txt')
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', required=True, help='New external directory; source and private workspaces are never bundled')
+    args = parser.parse_args()
+    output = Path(args.output).expanduser().resolve()
+    if output == ROOT or ROOT in output.parents or output in ROOT.parents or output.exists():
+        parser.error('Choose a new external output directory; nothing is overwritten')
+    if platform.system() not in {'Darwin', 'Windows'}:
+        parser.error('Build on native macOS or Windows; no cross-compilation')
+    if importlib.metadata.version('pyinstaller') != '6.22.3':
+        parser.error('Install the pinned development build dependency: pyinstaller==6.22.3')
+    subprocess.run(['git', 'diff', '--quiet', 'HEAD', '--'], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, 'scripts/check_public_tree.py', '--history'], cwd=ROOT, check=True)
+    approved = set(json.loads((ROOT / '.public-files.json').read_text(encoding='utf-8')))
+    tracked = set(subprocess.check_output(['git', 'ls-files'], cwd=ROOT, text=True).splitlines())
+    if approved != tracked:
+        parser.error('Commit the exact reviewed source allowlist before building')
+    revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip()
+    output.mkdir(parents=True, mode=0o700)
+    with tempfile.TemporaryDirectory(prefix='fmj-native-build-') as temporary:
+        build = Path(temporary)
+        source = build / 'source'
+        source.mkdir()
+        archive = build / 'source.tar'
+        with archive.open('wb') as stream:
+            subprocess.run(['git', 'archive', 'HEAD'], cwd=ROOT, stdout=stream, check=True)
+        with tarfile.open(archive) as contents:
+            contents.extractall(source, filter='data')
+        notices = build / 'licenses'
+        collect_notices(notices)
+        command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean', '--windowed',
+                   '--name', NAME, '--distpath', str(output), '--workpath', str(build / 'work'),
+                   '--specpath', str(build), '--paths', str(source), '--add-data', str(notices) + os.pathsep + 'licenses',
+                   '--add-data', str(source / 'THIRD_PARTY_NOTICES.md') + os.pathsep + '.',
+                   '--osx-bundle-identifier', 'org.findmeajob.setup']
+        command.append('--onedir' if sys.platform == 'darwin' else '--onefile')
+        command.append(str(source / 'install/wizard.py'))
+        subprocess.run(command, cwd=source, check=True)
+    if sys.platform == 'darwin':
+        executable = output / (NAME + '.app/Contents/MacOS/' + NAME)
+    else:
+        executable = output / (NAME + '.exe')
+    report = output / 'bundle-smoke.json'
+    environment = os.environ.copy()
+    environment['PATH'] = os.defpath  # No system Python is needed to launch the artifact.
+    subprocess.run([str(executable), '--self-test', str(report)], env=environment, timeout=60, check=True)
+    smoke = json.loads(report.read_text(encoding='utf-8'))
+    if smoke.get('status') != 'passed' or not smoke.get('bundled') or smoke.get('installs_executed'):
+        raise RuntimeError('Bundled Python/Tk launch did not pass')
+    artifact = executable
+    if sys.platform == 'darwin':
+        artifact = output / (NAME + '-macos-' + platform.machine() + '.dmg')
+        subprocess.run(['hdiutil', 'create', '-volname', 'Find Me a Job Setup', '-srcfolder',
+                        str(output / (NAME + '.app')), '-format', 'UDZO', str(artifact)], check=True)
+    manifest = {'revision': revision, 'platform': platform.platform(), 'architecture': platform.machine(),
+                'artifact': artifact.name, 'sha256': hashlib.sha256(artifact.read_bytes()).hexdigest(),
+                'bundled_python_tk_smoke': smoke, 'signing': 'private pilot; no Developer ID/notarization or Windows publisher certificate',
+                'publication': 'not performed'}
+    (output / 'installer-manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+    print('Native artifact built and launched with bundled Python/Tk. No publication or account login performed.')
+
+
+if __name__ == '__main__':
+    main()

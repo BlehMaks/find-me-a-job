@@ -1,6 +1,7 @@
 [
   ".githooks/pre-commit",
   ".github/workflows/check.yml",
+  ".github/workflows/installer.yml",
   ".github/workflows/pages.yml",
   ".gitignore",
   ".public-files.json",
@@ -35,6 +36,7 @@
   "install/clone.sh",
   "install/install.ps1",
   "install/install.sh",
+  "install/wizard.py",
   "markets/at.md",
   "markets/ca.md",
   "markets/ch.md",
@@ -63,6 +65,7 @@
   "schemas/feedback-consent.json",
   "schemas/style-profile.json",
   "schemas/template-profile.json",
+  "scripts/build_installer.py",
   "scripts/build_release.py",
   "scripts/check_public_tree.py",
   "scripts/check_release_payload.py",

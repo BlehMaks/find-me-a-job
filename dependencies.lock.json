@@ -132,6 +132,14 @@
       "license": "MIT",
       "end_user_runtime_required": false,
       "bundled": false
+    },
+    {
+      "name": "PyInstaller",
+      "version": "6.22.3",
+      "source": "https://pyinstaller.org/",
+      "license": "GPL-2.0-or-later with bootloader distribution exception; see bundled COPYING",
+      "end_user_runtime_required": false,
+      "bundled": "native installer bootloader only; Python and Tcl/Tk licenses included separately"
     }
   ]
 }
