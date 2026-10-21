@@ -1,7 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
-from fmj import campaign, telegram
+from fmj import campaign, telegram, store
 from fmj.workspace import create_workspace, atomic_write_json
 
 
@@ -26,6 +26,39 @@ class TelegramTests(unittest.TestCase):
         result=telegram.process_update(self.root,self.update(1,'Change my salary target'))
         self.assertIn('operator',result['text'])
         self.assertFalse(campaign.status(self.root)['pauses'])
+
+    def test_safe_request_content_and_operator_states_are_durable(self):
+        update=self.update(1,'Please consider research roles in another market')
+        update['message']['message_id']=77
+        result=telegram.process_update(self.root,update)
+        requests=telegram.inbox(self.root,'operator')
+        self.assertEqual(1,len(requests))
+        self.assertEqual(update['message']['text'],requests[0]['body'])
+        self.assertEqual('received',requests[0]['status'])
+        self.assertNotIn('routed',result['text'])
+        self.assertIsNone(telegram.process_update(self.root,update))
+        self.assertEqual(1,len(telegram.inbox(self.root,'operator')))
+        with self.assertRaises(telegram.TelegramError):telegram.inbox(self.root,'client')
+        seen=telegram.inbox(self.root,'operator',requests[0]['id'],'seen','Operator read the private request')
+        self.assertEqual('seen',seen['status'])
+        resolved=telegram.inbox(self.root,'operator',requests[0]['id'],'resolved','Operator answered separately')
+        self.assertEqual('resolved',resolved['status'])
+
+    def test_factual_reply_links_to_exact_question_without_command(self):
+        question=self.question_setup()
+        def transport(*args):
+            from fmj.workspace import WorkspaceError
+            with self.assertRaises(WorkspaceError):store.connection(self.root)
+            return {'message_id':7}
+        telegram.ask(self.root,question,'operator',transport=transport)
+        update=self.update(1,'I personally used the verified research method')
+        update['message']['reply_to_message']={'message_id':7}
+        telegram.process_update(self.root,update)
+        from fmj.records import load_record
+        saved=load_record(self.root,'clarification',question['id'])
+        self.assertEqual('answered',saved['status'])
+        self.assertEqual(update['message']['text'],saved['answer'])
+        self.assertEqual([],telegram.inbox(self.root,'operator'))
     def test_self_hosted_has_no_telegram(self):
         root=self.base/'local';create_workspace(root,source_root=self.base/'source')
         with self.assertRaises(telegram.TelegramError):telegram.process_update(root,self.update(1,'/pause'))
@@ -54,6 +87,7 @@ class TelegramTests(unittest.TestCase):
         telegram.process_update(self.root,self.update(1,'password: '+marker))
         self.assertFalse(any(marker in p.read_text() for p in self.root.rglob('*.json')))
         self.assertFalse(any(marker in p.read_text() for p in self.root.rglob('*.jsonl')))
+        self.assertNotIn(marker.encode(),(self.root/'career.sqlite3').read_bytes())
 
     def question_setup(self):
         from fmj.records import load_record, save_record
@@ -71,10 +105,10 @@ class TelegramTests(unittest.TestCase):
         from fmj.workspace import read_json
         from fmj.records import load_record
         question = self.question_setup()
-        intent_path = self.root / 'runtime' / 'telegram-questions' / 'question-1.json'
+        intent_key = 'telegram-question:question-1'
         calls = []
         def accepted_but_timeout(token, method, payload):
-            intent = read_json(intent_path)
+            intent = store.state(self.root,intent_key)
             self.assertEqual('delivery_unknown', intent['status'])
             self.assertEqual('client', intent['identity']['client'])
             calls.append(payload)
@@ -84,7 +118,7 @@ class TelegramTests(unittest.TestCase):
         with self.assertRaises(telegram.TelegramError):
             telegram.ask(self.root, question, 'operator', transport=lambda *args:self.fail('Question replayed'))
         self.assertEqual(1, len(calls))
-        self.assertEqual('delivery_unknown', read_json(intent_path)['status'])
+        self.assertEqual('delivery_unknown', store.state(self.root,intent_key)['status'])
         self.assertEqual(1, load_record(self.root, 'clarification', question['id'])['version'])
         # The ordinary notification retry loop must not retry a factual question.
         telegram.flush_outbox(self.root, transport=lambda *args:self.fail('Question retried by reply outbox'))
@@ -103,7 +137,7 @@ class TelegramTests(unittest.TestCase):
         self.assertEqual('delivered', first['notification_status'])
         self.assertEqual(first, second)
         self.assertEqual(1, len(calls))
-        intent = read_json(self.root / 'runtime' / 'telegram-questions' / 'question-1.json')
+        intent = store.state(self.root,'telegram-question:question-1')
         self.assertEqual(7, intent['message_id'])
         self.assertEqual('delivered', intent['status'])
         with self.assertRaises(telegram.TelegramError):

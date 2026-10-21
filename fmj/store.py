@@ -232,6 +232,8 @@ def _migrate(root, apply):
                     path = workspace_path(root, "runtime", filename)
                     if path.exists():
                         save_state(root, key, json.loads(path.read_text()))
+                for path in workspace_path(root, "runtime", "telegram-questions").glob("*.json"):
+                    save_state(root, "telegram-question:"+path.stem, json.loads(path.read_text()))
                 if db.execute("PRAGMA foreign_key_check").fetchall():
                     raise WorkspaceError("Migration relationships failed validation")
         except BaseException:

@@ -2,6 +2,9 @@ from pathlib import Path
 import contextlib
 import io
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -42,6 +45,27 @@ class CLITests(unittest.TestCase):
             self.assertEqual(0,self.call(['init','--workspace',root,'--agent','codex'])[0])
             with patch('fmj.__main__.shutil.which',return_value='synthetic-agent'), patch('fmj.__main__.subprocess.call',return_value=17):
                 self.assertEqual(17,self.call(['run','--workspace',root])[0])
+
+    @unittest.skipIf(os.name=='nt','POSIX executable stub; installed wheel E2E covers runtime separately')
+    def test_real_child_uses_private_cwd_and_current_runtime_without_activation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)/'private'
+            self.assertEqual(0,self.call(['init','--workspace',str(root),'--agent','codex'])[0])
+            executable=Path(temp)/'synthetic-agent'
+            executable.write_text('#!'+sys.executable+'\n'+
+                'import json,os,sys,subprocess\nfrom pathlib import Path\n'+
+                'result={"cwd":os.getcwd(),"source":os.environ["FMJ_SOURCE_ROOT"],"prompt":sys.argv[1],"path":os.environ["PATH"],'+
+                '"python":subprocess.check_output([sys.executable,"-c","import sys,pypdf;print(sys.executable)"],text=True).strip()}\n'+
+                'Path("child-observation.json").write_text(json.dumps(result))\n')
+            executable.chmod(0o700)
+            with patch('fmj.__main__.shutil.which',return_value=str(executable)),patch.dict(os.environ,{'PATH':os.defpath}):
+                code,_,err=self.call(['run','--workspace',str(root)])
+            self.assertEqual(0,code,err)
+            result=json.loads((root/'child-observation.json').read_text())
+            self.assertEqual(root.resolve(),Path(result['cwd']))
+            self.assertEqual(sys.executable,result['python'])
+            self.assertTrue(result['path'].startswith(str(Path(sys.executable).parent)+os.pathsep))
+            self.assertIn(str(Path(result['source'])/'AGENTS.md'),result['prompt'])
 
     def test_doctor_capabilities_are_not_outbound_authority(self):
         from fmj.__main__ import doctor

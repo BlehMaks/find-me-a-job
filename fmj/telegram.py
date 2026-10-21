@@ -5,7 +5,7 @@ import re
 import urllib.error
 import urllib.request
 
-from . import campaign
+from . import campaign, store
 from .records import load_record, save_record, append_event, identifier, _digest
 from .workspace import load_workspace, locked_workspace, workspace_path, read_json, atomic_write_json, now
 
@@ -58,9 +58,13 @@ def _operator_notice(root, message, transport):
     path=workspace_path(root, "runtime", "telegram-operator.json")
     if path.exists() and read_json(path).get("chat_id"):
         binding=_binding(root)
-        transport(_token(root,binding), "sendMessage", {"chat_id":read_json(path)["chat_id"], "text":message})
+        observation=transport(_token(root,binding), "sendMessage", {"chat_id":read_json(path)["chat_id"], "text":message})
+        if not isinstance(observation,dict) or not isinstance(observation.get("message_id"),int):
+            raise TelegramError("Operator notification delivery was not observed")
+        return True
     else:
-        append_event(root,"operator_attention_required",data={"reason":message})
+        append_event(root,"operator_attention_required",data={"reason":message},event_id=_digest(["operator_notice",message]))
+        return False
 
 
 def process_update(root, update):
@@ -70,13 +74,16 @@ def process_update(root, update):
     campaign.authorize_client(root,message.get("chat",{}).get("id"),message.get("from",{}).get("id"))
     update_id=update.get("update_id")
     if not isinstance(update_id,int):raise TelegramError("Missing update identity")
-    state_path=workspace_path(root,"runtime","telegram-state.json")
     with locked_workspace(root):
-        state=read_json(state_path) if state_path.exists() else {"last_update_id":-1}
+        state=store.state(root,"telegram",{"last_update_id":-1})
         if update_id<=state["last_update_id"]:return None
         text=message.get("text","").strip();client=binding["client"]
-        secret_like=bool(re.search(r"(?i)\b(password|passwd|token|secret|verification code)\s*[:=]",text))
+        secret_like=bool(re.search(r"(?i)\b(password|passwd|token|secret|verification code|пароль|код)\s*[:=]|\bgh[pousr]_[A-Za-z0-9]+|\bsk-(?:proj-)?[A-Za-z0-9_-]+|^\d{4,8}$",text))
         notice=None
+        request_id=None
+        reply_message_id=message.get("reply_to_message",{}).get("message_id")
+        questions=store.payloads(root,"runtime_state"," WHERE key LIKE 'telegram-question:%'") if reply_message_id is not None else []
+        linked_question=next((q for q in questions if q.get("status")=="delivered" and q.get("message_id")==reply_message_id),None)
         if secret_like:
             reply="Do not send passwords, tokens or verification codes here. Your message was not copied into the agent journal. Contact the operator for secure credential entry."
         elif text=="/pause":
@@ -94,23 +101,31 @@ def process_update(root, update):
             if len(parts)!=3:raise TelegramError("Use /answer question-id your factual answer")
             campaign.answer_clarification(root,parts[1],parts[2],client,update_id=update_id)
             reply="Your factual answer is saved for the agent to integrate into the confirmed record."
+        elif linked_question:
+            campaign.answer_clarification(root,linked_question["id"],text,client,update_id=update_id)
+            reply="Your factual answer is saved for the agent to verify and update the dependent draft."
         else:
-            append_event(root,"operator_service_request",actor=client,data={"classification":"service_or_campaign_request","update_id":update_id})
-            reply="Your request has been routed to the operator. Campaign settings, access and service terms are handled by them."
-            notice="Client has a service/campaign request in the private journal."
-        result={"chat_id":binding["allowed_chat_id"],"text":reply,"operator_notice":notice}
+            origin=_digest([binding["client"],binding["allowed_chat_id"],binding["allowed_user_id"],message.get("message_id",update_id)])
+            request_id=origin
+            payload={"id":request_id,"body":text,"client":client,"chat_id":binding["allowed_chat_id"],
+                "user_id":binding["allowed_user_id"],"message_id":message.get("message_id"),"update_id":update_id,"received_at":now()}
+            store.connection(root).execute("INSERT OR IGNORE INTO inbox_requests VALUES(?,?,'received',?)",(request_id,origin,store.encode(payload)))
+            append_event(root,"operator_service_request",actor=client,entity_id=request_id,data={"update_id":update_id},event_id=_digest(["request",origin]))
+            reply="Your request is saved in the operator inbox. Campaign settings, access and service terms are handled by them."
+            notice="Client request "+request_id+":\n"+text
+        result={"chat_id":binding["allowed_chat_id"],"text":reply,"operator_notice":notice,"request_id":request_id}
         state.setdefault("outbox",[]).append({"update_id":update_id,"response":result,
                                             "client_delivered":False,"operator_delivered":notice is None,
                                             "intended_client":client,"intended_chat":binding["allowed_chat_id"],"intended_user":binding["allowed_user_id"]})
         state["last_update_id"]=update_id
-        atomic_write_json(state_path,state)
+        store.save_state(root,"telegram",state)
         return result
 
 
 def ask(root, clarification, operator, *, transport=request):
     """Send a factual question once; uncertain delivery needs operator reconciliation."""
     question_id=identifier(clarification.get("id"))
-    intent_path=workspace_path(root,"runtime","telegram-questions",question_id+".json")
+    intent_key="telegram-question:"+question_id
     with locked_workspace(root):
         binding=_binding(root);config=load_workspace(root)
         if operator!=config["operator"]:
@@ -122,8 +137,8 @@ def ask(root, clarification, operator, *, transport=request):
         identity={"workspace_id":config["id"],"client":binding["client"],
                   "chat_id":binding["allowed_chat_id"],"user_id":binding["allowed_user_id"]}
         question_hash=_digest(clarification)
-        if intent_path.exists():
-            prior=read_json(intent_path)
+        prior=store.state(root,intent_key)
+        if prior:
             if prior["identity"]!=identity or prior["question_hash"]!=question_hash:
                 raise TelegramError("Question or recipient changed; create a new question ID after operator review")
             if prior["status"]!="delivered":
@@ -134,7 +149,7 @@ def ask(root, clarification, operator, *, transport=request):
         intent={"id":question_id,"identity":identity,"question_hash":question_hash,
                 "question":question,"status":"delivery_unknown","started_at":now()}
         # Persist uncertainty before sending: a crash or timeout cannot silently replay.
-        atomic_write_json(intent_path,intent)
+        store.save_state(root,intent_key,intent)
         payload={"chat_id":identity["chat_id"],"text":question["question"]+"\nReply: /answer "+question["id"]+" your answer"}
     try:
         observation=transport(token,"sendMessage",payload)
@@ -144,43 +159,71 @@ def ask(root, clarification, operator, *, transport=request):
         raise TelegramError("Question has no delivery observation; operator reconciliation is required")
     with locked_workspace(root):
         intent.update(status="delivered",message_id=observation["message_id"],delivered_at=now())
-        atomic_write_json(intent_path,intent)
+        store.save_state(root,intent_key,intent)
     return {**question,"notification_status":"delivered"}
 
 
-def flush_outbox(root, *, transport=request):
-    binding=_binding(root);token=_token(root,binding)
-    state_path=workspace_path(root,"runtime","telegram-state.json")
+def inbox(root, operator, request_id=None, status=None, evidence=None):
+    if operator!=load_workspace(root)['operator']:
+        raise TelegramError('Only the operator may inspect service requests')
     with locked_workspace(root):
-        state=read_json(state_path) if state_path.exists() else {"last_update_id":-1,"outbox":[]}
-        for item in state.get("outbox",[]):
-            if (item.get("intended_client"),str(item.get("intended_chat")),str(item.get("intended_user"))) != (binding["client"],str(binding["allowed_chat_id"]),str(binding["allowed_user_id"])):
-                raise TelegramError("Pending notification belongs to another binding; operator review required")
-            if not item["client_delivered"]:
+        if request_id is None:
+            values=store.rows(root,"SELECT status,payload FROM inbox_requests WHERE status<>'resolved' LIMIT 25")
+            return [{**json.loads(v['payload']),'status':v['status']} for v in values]
+        values=store.rows(root,'SELECT status,payload FROM inbox_requests WHERE id=?',(request_id,))
+        if not values:raise TelegramError('Unknown service request')
+        value={**json.loads(values[0]['payload']),'status':values[0]['status']}
+        if status:
+            if status not in {'seen','resolved'} or not evidence:
+                raise TelegramError('Operator state changes require seen/resolved and observation evidence')
+            if value['status']=='resolved' and status!='resolved':
+                raise TelegramError('Resolved request cannot silently reopen')
+            value.update(status=status,**{status+'_at':now()},evidence=evidence)
+            store.connection(root).execute('UPDATE inbox_requests SET status=?,payload=? WHERE id=?',(status,store.encode(value),request_id))
+        return value
+
+
+def flush_outbox(root, *, transport=request):
+    # Serialize notifications, but leave the ordinary writer free during network I/O.
+    with locked_workspace(root,'runtime/.telegram.lock'):
+        binding=_binding(root);token=_token(root,binding)
+        initial=store.state(root,'telegram',{'last_update_id':-1,'outbox':[]})
+        for pending in initial.get('outbox',[]):
+            expected=(binding['client'],str(binding['allowed_chat_id']),str(binding['allowed_user_id']))
+            if (pending.get('intended_client'),str(pending.get('intended_chat')),str(pending.get('intended_user')))!=expected:
+                raise TelegramError('Pending notification belongs to another binding; operator review required')
+            client_delivered=pending['client_delivered'];operator_delivered=pending['operator_delivered'];routed=False
+            if not client_delivered:
                 try:
-                    response=item["response"]
-                    transport(token,"sendMessage",{"chat_id":binding["allowed_chat_id"],"text":response["text"]})
-                    item["client_delivered"]=True
-                except TelegramError:
-                    pass
-            # Notify the operator independently, even if the client's reply failed.
-            if not item["operator_delivered"]:
+                    transport(token,'sendMessage',{'chat_id':binding['allowed_chat_id'],'text':pending['response']['text']})
+                    client_delivered=True
+                except (OSError,ValueError):pass
+            if not operator_delivered:
                 try:
-                    _operator_notice(root,item["response"]["operator_notice"],transport)
-                    item["operator_delivered"]=True
-                except TelegramError:
-                    pass
-            atomic_write_json(state_path,state)
-        state["outbox"]=[item for item in state.get("outbox",[]) if not(item["client_delivered"] and item["operator_delivered"])]
-        atomic_write_json(state_path,state)
-        return {"pending_notifications":len(state["outbox"])}
+                    routed=_operator_notice(root,pending['response']['operator_notice'],transport)
+                    # Without a configured chat the durable local inbox is the handoff.
+                    operator_delivered=True
+                except (OSError,ValueError):pass
+            with locked_workspace(root):
+                state=store.state(root,'telegram',{'last_update_id':-1,'outbox':[]})
+                current=next((v for v in state.get('outbox',[]) if v['update_id']==pending['update_id']),None)
+                if current:
+                    current.update(client_delivered=client_delivered,operator_delivered=operator_delivered)
+                request_id=pending['response'].get('request_id')
+                if routed and request_id:
+                    values=store.rows(root,'SELECT status,payload FROM inbox_requests WHERE id=?',(request_id,))
+                    if values and values[0]['status']=='received':
+                        value=json.loads(values[0]['payload']);value['routed_at']=now()
+                        store.connection(root).execute("UPDATE inbox_requests SET status='routed',payload=? WHERE id=?",(store.encode(value),request_id))
+                state['outbox']=[v for v in state.get('outbox',[]) if not(v['client_delivered'] and v['operator_delivered'])]
+                store.save_state(root,'telegram',state)
+        return {'pending_notifications':len(store.state(root,'telegram',{'outbox':[]}).get('outbox',[]))}
 
 
 def poll_once(root, *, transport=request):
     binding=_binding(root);token=_token(root,binding)
     flush_outbox(root,transport=transport)
-    state_path=workspace_path(root,"runtime","telegram-state.json")
-    state=read_json(state_path) if state_path.exists() else {"last_update_id":-1,"outbox":[]}
+    state=store.state(root,"telegram",{"last_update_id":-1,"outbox":[]})
     updates=transport(token,"getUpdates",{"offset":state["last_update_id"]+1,"timeout":25,"allowed_updates":["message"]})
     handled=0
     for update in sorted(updates,key=lambda x:x.get("update_id",-1)):
@@ -193,7 +236,7 @@ def poll_once(root, *, transport=request):
             number=update.get("update_id")
             if isinstance(number,int):
                 with locked_workspace(root):
-                    state=read_json(state_path) if state_path.exists() else {"last_update_id":-1,"outbox":[]}
+                    state=store.state(root,"telegram",{"last_update_id":-1,"outbox":[]})
                     state["last_update_id"]=max(state["last_update_id"],number)
-                    atomic_write_json(state_path,state)
+                    store.save_state(root,"telegram",state)
     return {"handled":handled,**flush_outbox(root,transport=transport)}

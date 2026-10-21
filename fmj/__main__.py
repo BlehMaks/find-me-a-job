@@ -45,7 +45,9 @@ def doctor(root, smoke=False):
             'tools':tools,'pypdf':pdf_version,'private_permissions':config['permission_status'],
             'capabilities':caps,'ready_for_intake':True,
             'document_tools_available':bool(tools['xelatex'] and tools['pdftoppm'] and pdf_version),
-            'outbound_capabilities_available':all(caps.get(k,{}).get('status')=='verified' for k in ('browser','mailbox')),
+            'outbound_capabilities_available':all(caps.get(k,{}).get('status')=='verified' for k in ('browser','upload','mailbox')),
+            'review_route':caps.get('reviewer',{'status':'unconfigured','next_action':'Choose an independent human or separate agent; export documents review-pack before approval.'}),
+            'manual_application_fallback':'Prepare a reviewed bundle, exact answers and filenames for human submission when browser/upload is unavailable.',
             'ready_for_outbound':False,'per_operation_preflight_required':True,
             'next_action':'Use the chosen agent adapter to verify actual browser/account/upload capabilities; installation alone is not that verification.'}
     if smoke:
@@ -76,7 +78,7 @@ def parser():
         q=commands.add_parser(name);q.add_argument('--workspace',required=True)
         if name=='doctor':q.add_argument('--smoke',action='store_true');q.add_argument('--json',action='store_true')
     q=commands.add_parser('record');q.add_argument('--workspace',required=True);q.add_argument('--kind',required=True);q.add_argument('--input',required=True);q.add_argument('--actor',default='owner')
-    q=commands.add_parser('capability');q.add_argument('--workspace',required=True);q.add_argument('--name',choices=['browser','upload','mailbox','messaging','native'],required=True);q.add_argument('--evidence',required=True);q.add_argument('--adapter',required=True)
+    q=commands.add_parser('capability');q.add_argument('--workspace',required=True);q.add_argument('--name',choices=['browser','upload','mailbox','messaging','native','reviewer'],required=True);q.add_argument('--evidence',required=True);q.add_argument('--adapter',required=True)
     storage=commands.add_parser('storage').add_subparsers(dest='action',required=True)
     for action in ('status','migrate','backup','restore'):
         q=storage.add_parser(action);q.add_argument('--workspace',required=True)
@@ -105,10 +107,12 @@ def parser():
         if action in ('show','observe','refresh','begin','complete','reconcile','receipt'):q.add_argument('--operation',required=True)
         if action=='pause':q.add_argument('--reason',default='Requested pause')
     tg=commands.add_parser('telegram').add_subparsers(dest='action',required=True)
-    for action in ('listen','ask'):
+    for action in ('listen','ask','inbox'):
         q=tg.add_parser(action);q.add_argument('--workspace',required=True)
         if action=='listen':q.add_argument('--once',action='store_true')
         if action=='ask':q.add_argument('--input',required=True);q.add_argument('--operator',required=True)
+        if action=='inbox':
+            q.add_argument('--operator',required=True);q.add_argument('--request');q.add_argument('--status',choices=['seen','resolved']);q.add_argument('--evidence')
     fb=commands.add_parser('feedback').add_subparsers(dest='action',required=True)
     for action in ('consent','prepare','review','review-patch','submit'):
         q=fb.add_parser(action);q.add_argument('--workspace',required=True)
@@ -150,8 +154,13 @@ def execute(a):
             import sysconfig
             source=Path(sysconfig.get_path('data'))/'share/find-me-a-job'
         if not (source/'AGENTS.md').is_file():raise UserInputError('Agent workflows are missing; run from an installed checkout')
-        prompt='Read AGENTS.md and the configured adapter. The explicitly selected external private workspace is '+json.dumps(str(Path(a.workspace).resolve()))+'. Resume its earliest unfinished authorized phase; do not write client data to this source directory.'
-        return {'agent_exit_code':subprocess.call([exe,prompt],cwd=source)}
+        environment=os.environ.copy()
+        environment['PATH']=str(Path(sys.executable).parent)+os.pathsep+environment.get('PATH','')
+        environment['FMJ_WORKSPACE']=str(Path(a.workspace).resolve())
+        environment['FMJ_SOURCE_ROOT']=str(source)
+        runtime=[sys.executable,'-m','fmj']
+        prompt='Read '+json.dumps(str(source/'AGENTS.md'))+' and its configured adapter. The selected private workspace is '+json.dumps(environment['FMJ_WORKSPACE'])+'. Invoke the installed companion using '+json.dumps(runtime)+'. First read campaign status for pending obligations/unknown delivery; supported commands record their effects automatically, so do not maintain duplicate journals or run a model helper for bookkeeping. Resume the earliest unfinished authorized phase. At setup establish an independent reviewer or export a private review pack for human review; check actual browser/upload/mail capabilities. Keep client data in the private workspace.'
+        return {'agent_exit_code':subprocess.call([exe,prompt],cwd=Path(a.workspace).resolve(),env=environment)}
     if a.command=='record':return records.save_record(a.workspace,a.kind,_json(a.input),actor=a.actor)
     if a.command=='validate':
         checked=0
@@ -204,12 +213,14 @@ def execute(a):
         if a.action=='begin':
             caps=_capabilities(root)
             if caps.get('browser',{}).get('status')!='verified':raise UserInputError('Record actual browser smoke-test evidence before dispatch')
+            if data.get('attachments') and caps.get('upload',{}).get('status')!='verified':raise UserInputError('Record an actual synthetic upload check before uploading documents')
             return campaign.begin_dispatch(root,a.operation,a.actor,actual_form=data,verify_documents=lambda intent:campaign.verify_operation_documents(root,intent))
         if a.action=='complete':return campaign.complete_dispatch(root,a.operation,**data)
         if a.action=='reconcile':return campaign.reconcile_operation(root,a.operation,actor=a.actor,**data)
         if a.action=='receipt':return campaign.match_receipt(root,a.operation,data,actor=a.actor)
     if a.command=='telegram':
         if a.action=='ask':return telegram.ask(a.workspace,_json(a.input),a.operator)
+        if a.action=='inbox':return telegram.inbox(a.workspace,a.operator,a.request,a.status,_json(a.evidence) if a.evidence else None)
         while True:
             result=telegram.poll_once(a.workspace)
             if a.once:return result

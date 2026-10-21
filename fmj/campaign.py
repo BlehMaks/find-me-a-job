@@ -596,7 +596,10 @@ def answer_clarification(root, clarification_id, answer, actor, update_id=None):
         item.update(status="answered", answer=deepcopy(answer), answer_version=item.get("answer_version", 0) + 1)
         if update_id is not None:
             item["originating_update"] = update_id
-        return save_record(root, "clarification", item, actor=actor, expected_version=item["version"])
+        result = save_record(root, "clarification", item, actor=actor, expected_version=item["version"])
+        tracking.action(root,"integrate_factual_answer",load_workspace(root)["operator"] or load_workspace(root)["owner"],
+            action_id=_digest(["clarification",clarification_id,result["version"]]),evidence={"clarification_id":clarification_id,"version":result["version"]})
+        return result
 
 
 def verify_operation_documents(root, intent):
