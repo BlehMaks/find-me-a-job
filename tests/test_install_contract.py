@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -28,7 +29,7 @@ class PosixInstallContract(unittest.TestCase):
             (self.bin / tool).symlink_to(shutil.which(tool))
         self.env = dict(os.environ, PATH=str(self.bin), FMJ_INSTALL_TRACE=str(self.trace))
         self.python = self.bin / "python-test"
-        self.python.write_text("#!" + sys.executable + "\n" + r'''
+        self.python.write_text("#!/bin/sh\n'''exec' " + shlex.quote(sys.executable) + ' "$0" "$@"\n\' \'\'\'\n' + r'''
 import json, os, pathlib, sys
 args = sys.argv[1:]
 trace = pathlib.Path(os.environ['FMJ_INSTALL_TRACE'])

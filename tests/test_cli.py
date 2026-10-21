@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import shlex
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -52,7 +53,7 @@ class CLITests(unittest.TestCase):
             root=Path(temp)/'private'
             self.assertEqual(0,self.call(['init','--workspace',str(root),'--agent','codex'])[0])
             executable=Path(temp)/'synthetic-agent'
-            executable.write_text('#!'+sys.executable+'\n'+
+            executable.write_text("#!/bin/sh\n'''exec' " + shlex.quote(sys.executable) + ' "$0" "$@"\n\' \'\'\'\n'+
                 'import json,os,sys,subprocess\nfrom pathlib import Path\n'+
                 'result={"cwd":os.getcwd(),"source":os.environ["FMJ_SOURCE_ROOT"],"prompt":sys.argv[1],"path":os.environ["PATH"],'+
                 '"python":subprocess.check_output([sys.executable,"-c","import sys,pypdf;print(sys.executable)"],text=True).strip()}\n'+
