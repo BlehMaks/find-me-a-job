@@ -127,6 +127,7 @@ class Wizard:
                 '\n\nThe source will be cloned or reused without reset. Existing workspace data is preserved. '
                 'Missing tools may use Homebrew (macOS) or WinGet (Windows), including community Poppler builds on Windows. '
                 'Some system installations need your native confirmation. No subscription is purchased; no account is signed in automatically. '
+                'With enabled feedback, missing local Git identity uses your GitHub login and noreply address; global settings are preserved. '
                 'Sign-in and feedback are separate choices. Stop prevents later steps; it does not undo native installations.')
 
     def login(self):
@@ -143,6 +144,7 @@ class Wizard:
         except Handoff as error:
             self.write(error)
             return
+        plan = self.plan_text()
         self.busy = True
         self.url = None
         self.result = None
@@ -158,7 +160,7 @@ class Wizard:
             try:
                 if action == 'check':
                     result = probe(self.runner)
-                    self.events.put(('output', self.plan_text()))
+                    self.events.put(('output', plan))
                     self.events.put(('output', '\nTools: ' + json.dumps(result, indent=2)))
                     self.events.put(('done', 'Plan checked. Account, quota and browser/mail permissions remain unverified.'))
                 elif action == 'login':
@@ -202,6 +204,7 @@ class Wizard:
                 self.write('Open the source folder in your desktop agent: ' + value['source'])
                 self.write('Grant separate access to: ' + value['workspace'])
                 self.write('Your copyable first message is in: ' + value['starter'])
+                self.write('Generic improvements: ' + value['feedback'] + '; GitHub: ' + value['feedback_auth'])
                 self.url = Path(value['starter']).as_uri()
                 self.link_button.configure(text='Open your first-message instructions', state='normal')
                 self.copy_button.configure(state='normal')

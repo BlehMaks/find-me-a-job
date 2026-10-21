@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import signal
 import subprocess
@@ -305,6 +306,7 @@ def setup(options, runner):
         # Rerunning init deliberately preserves old consent; this is an explicit UI choice.
         runner.run([python, '-m', 'fmj', 'feedback', 'consent', '--workspace', workspace,
                     '--enabled', 'yes' if options.feedback == 'enabled' else 'no', '--repository', UPSTREAM, '--actor', config['owner']])
+    feedback_state, feedback_auth = configure_feedback(source, workspace, tools, runner)
     runner.emit('Compiling and inspecting a synthetic PDF…')
     result = runner.run([python, '-m', 'fmj', 'doctor', '--workspace', workspace, '--smoke'], timeout=180)
     report = json.loads(result.stdout)
@@ -313,7 +315,34 @@ def setup(options, runner):
     return {'source': str(source), 'workspace': str(workspace), 'python': str(python),
             'starter': str(workspace / 'runtime/start-here.md'), 'documents': 'verified',
             'account_plan': 'unknown', 'browser_mail_permissions': 'not checked',
-            'feedback': options.feedback, 'revision': runner.run([tools['git'], '-C', source, 'rev-parse', 'HEAD'], timeout=15).stdout.strip()}
+            'feedback': feedback_state, 'feedback_auth': feedback_auth,
+            'revision': runner.run([tools['git'], '-C', source, 'rev-parse', 'HEAD'], timeout=15).stdout.strip()}
+
+
+def configure_feedback(source, workspace, tools, runner):
+    consent = workspace / 'runtime/feedback-consent.json'
+    state = json.loads(consent.read_text(encoding='utf-8')).get('state') if consent.exists() else 'unset'
+    if state not in {'enabled', 'disabled', 'unset'}:
+        raise Handoff('Existing feedback consent needs review before setup can finish.')
+    if state != 'enabled':
+        return state, 'not requested'
+    gh, git = tools['gh'], tools['git']
+    if runner.run([gh, 'auth', 'status', '--hostname', 'github.com'], check=False, timeout=20).returncode:
+        return state, 'needs sign-in'
+    user = json.loads(runner.run([gh, 'api', 'user'], timeout=20).stdout)
+    if not re.fullmatch(r'[A-Za-z0-9-]+', user.get('login', '')) or not isinstance(user.get('id'), int):
+        raise Handoff('GitHub identity was not recognized. Review the account before configuring contributions.')
+    defaults = {'user.name': user['login'],
+                'user.email': str(user['id']) + '+' + user['login'] + '@users.noreply.github.com',
+                'credential.https://github.com.helper': '!gh auth git-credential',
+                'core.hooksPath': '.githooks'}
+    for key, value in defaults.items():
+        existing = runner.run([git, '-C', source, 'config', '--get', key], check=False, timeout=15)
+        if existing.returncode == 1:
+            runner.run([git, '-C', source, 'config', '--local', key, value], timeout=15)
+        elif existing.returncode:
+            raise Handoff('Local Git settings could not be inspected; no global settings were changed.')
+    return state, 'authenticated; repository submission checked when needed'
 
 
 def github_login(runner):

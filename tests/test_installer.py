@@ -9,7 +9,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login
+from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback
 
 
 class InstallerTests(unittest.TestCase):
@@ -125,6 +125,70 @@ class InstallerTests(unittest.TestCase):
                 return subprocess.CompletedProcess(argv, 1, '')
         with patch('fmj.installer.shutil.which', return_value='gh'):
             self.assertFalse(github_login(FailedLogin()))
+
+
+    def test_failed_command_keeps_diagnostic_output_visible(self):
+        output = []
+        with self.assertRaises(Handoff):
+            Runner(output.append).run([sys.executable, '-c',
+                                       'print("missing required package");raise SystemExit(2)'], timeout=10)
+        self.assertIn('missing required package', '\n'.join(output))
+
+    def test_cancel_terminates_real_waiting_child(self):
+        ready = threading.Event()
+        runner = Runner(lambda line: ready.set() if line == 'waiting' else None)
+        errors = []
+        def work():
+            try:
+                runner.run([sys.executable, '-u', '-c', 'import time;print("waiting",flush=True);time.sleep(120)'])
+            except Cancelled:
+                errors.append('cancelled')
+        thread = threading.Thread(target=work)
+        thread.start()
+        try:
+            self.assertTrue(ready.wait(10))
+        finally:
+            runner.stop()
+            thread.join(15)
+        self.assertFalse(thread.is_alive(), 'Stop must release the streaming reader')
+        self.assertEqual(errors, ['cancelled'])
+
+    def test_feedback_opt_in_repair_preserves_identity_and_never_sends(self):
+        workspace = self.options.workspace
+        (workspace / 'runtime').mkdir(parents=True)
+        consent = workspace / 'runtime/feedback-consent.json'
+        source = self.options.source
+        subprocess.run(['git', 'init', str(source)], capture_output=True, check=True)
+        subprocess.run(['git', '-C', str(source), 'config', '--local', 'user.name', 'Existing identity'], check=True)
+        calls = []
+        actual = Runner()
+        class GitHubStub:
+            authenticated = False
+            def run(self, argv, **kwargs):
+                calls.append(argv)
+                if argv[0] == 'gh':
+                    if argv[1:3] == ['auth', 'status']:
+                        return subprocess.CompletedProcess(argv, 0 if self.authenticated else 1, '')
+                    if argv[1:] == ['api', 'user']:
+                        return subprocess.CompletedProcess(argv, 0, '{"login":"example-account","id":12345}')
+                    raise AssertionError('Unexpected GitHub action: ' + repr(argv))
+                return actual.run(argv, **kwargs)
+        runner = GitHubStub()
+        for state in ('unset', 'disabled'):
+            consent.write_text(json.dumps({'state': state}))
+            self.assertEqual(configure_feedback(source, workspace, {'git':'git','gh':'gh'}, runner), (state, 'not requested'))
+        self.assertEqual(calls, [])
+        consent.write_text('{"state":"enabled"}')
+        self.assertEqual(configure_feedback(source, workspace, {'git':'git','gh':'gh'}, runner), ('enabled', 'needs sign-in'))
+        runner.authenticated = True
+        state, auth = configure_feedback(source, workspace, {'git':'git','gh':'gh'}, runner)
+        self.assertEqual(state, 'enabled')
+        self.assertIn('authenticated', auth)
+        name = actual.run(['git', '-C', source, 'config', 'user.name'], timeout=10).stdout.strip()
+        self.assertEqual(name, 'Existing identity')
+        self.assertFalse(any('--global' in command for command in calls))
+        writes = [command for command in calls if command[0] == 'gh']
+        self.assertTrue(all(command[1:3] in (['api','user'], ['auth','status']) for command in writes))
 
 
 if __name__ == '__main__':
