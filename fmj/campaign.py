@@ -577,6 +577,15 @@ def _match_receipt(root, operation_id, receipt, actor):
             raise CampaignBlocked("Receipt is already associated with another application")
         db.execute("INSERT OR IGNORE INTO receipts VALUES(?,?,?)", (receipt_id,operation["application_id"],store.encode(receipt)))
         if operation["stage"] != "submission_observed":
+            submitted_at=receipt.get('submitted_at')
+            if submitted_at and datetime.fromisoformat(submitted_at).tzinfo is None:
+                raise CampaignBlocked('Receipt submission time must include timezone')
+            if not operation.get('dispatch_started_at') and (not submitted_at or datetime.fromisoformat(submitted_at)<datetime.fromisoformat(operation['created_at'])):
+                # Recovery establishes a real submission, not a new campaign send.
+                db.execute('UPDATE applications SET historical=1 WHERE id=?',(operation['application_id'],))
+                operation['observation_origin']='recovered_history'
+            if submitted_at:
+                operation['observed_submission_at']=submitted_at
             operation.update(stage="submission_observed", reconciled_at=now(), delivery_evidence=deepcopy(receipt),
                              submission_basis="matched_receipt", submitted_snapshot="unverified_from_receipt")
             operation.pop("bridge_ticket_hash", None)

@@ -36,6 +36,8 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(0,campaign.status(self.root)['submission_count'])
         self.assertTrue(campaign.match_receipt(self.root,op['id'],{'employer':self.opp['employer'],'url':self.opp['url'],'evidence':'Exact receipt'}))
         self.assertEqual(1,campaign.status(self.root)['submission_count'])
+        self.assertEqual(1,tracking.query(self.root,'applications')[0]['historical'])
+        self.assertEqual('recovered_history',campaign.load_operation(self.root,op['id'])['observation_origin'])
 
     def test_interview_and_completed_assessment_survive_later_events(self):
         op=campaign.create_operation(self.root,self.opp,'campaign')

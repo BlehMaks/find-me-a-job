@@ -158,7 +158,7 @@ def save_operation(root, operation, historical=False):
                        "outcome":operation["stage"], "evidence":operation.get("delivery_evidence"),'elapsed_seconds':elapsed})))
     if app_id and operation["stage"] == "submission_observed":
         db.execute("UPDATE applications SET submitted_at=COALESCE(submitted_at,?) WHERE id=?",
-                   (operation.get("dispatch_ended_at", operation.get("reconciled_at", now())), app_id))
+                   (operation.get('observed_submission_at',operation.get("dispatch_ended_at", operation.get("reconciled_at", now()))), app_id))
         if not historical:
             campaign_id = db.execute("SELECT campaign_id FROM applications WHERE id=?", (app_id,)).fetchone()[0]
             count = db.execute("SELECT COUNT(*) FROM applications WHERE campaign_id=? AND historical=0 AND submitted_at IS NOT NULL", (campaign_id,)).fetchone()[0]
