@@ -122,6 +122,7 @@ include install/clone.sh
 include install/clone.ps1
 include fmj/installer.py
 include tests/test_installer.py
+include tests/test_installer_links.py
 include install/wizard.py
 include scripts/build_installer.py
 include .github/workflows/installer.yml

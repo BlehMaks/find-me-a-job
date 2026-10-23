@@ -112,6 +112,7 @@
   "tests/test_feedback.py",
   "tests/test_install_contract.py",
   "tests/test_installer.py",
+  "tests/test_installer_links.py",
   "tests/test_intake_acceptance.py",
   "tests/test_interview_handoffs.py",
   "tests/test_managed_isolation.py",

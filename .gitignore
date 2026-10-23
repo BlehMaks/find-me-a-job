@@ -155,6 +155,7 @@
 !/install/clone.ps1
 !/fmj/installer.py
 !/tests/test_installer.py
+!/tests/test_installer_links.py
 !/install/wizard.py
 !/scripts/build_installer.py
 !/.github/workflows/installer.yml
