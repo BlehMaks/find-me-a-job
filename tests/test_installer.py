@@ -9,7 +9,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback, probe
+from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback, probe, agent_status
 
 
 class InstallerTests(unittest.TestCase):
@@ -33,6 +33,24 @@ class InstallerTests(unittest.TestCase):
             self.assertIsNone(result['codex'])
             self.assertEqual(result['desktop_apps']['codex'], str(expected))
             self.assertIsNone(result['desktop_apps']['claude'])
+
+    def test_agent_status_separates_desktop_and_cli_requirements(self):
+        app = self.base / 'ChatGPT.app'
+        app.mkdir()
+        tools = {'desktop_apps': {'codex': str(app)}, 'codex': None}
+        self.assertEqual(agent_status(self.options, tools), (
+            f'Desktop app (required): {app}', 'CLI (optional for desktop): not found'))
+        cli_options = Options(self.options.source, self.options.workspace, interface='cli')
+        self.assertEqual(agent_status(cli_options, tools), (
+            f'Desktop app (optional): {app}', 'CLI (required): not found'))
+        tools['codex'] = 'installed-cli'
+        self.assertEqual(agent_status(cli_options, tools)[1], 'CLI (required): installed-cli')
+        custom = self.base / 'custom.app'
+        custom.mkdir()
+        options = Options(self.options.source, self.options.workspace, desktop_app=str(custom))
+        self.assertEqual(agent_status(options, tools)[0], f'Desktop app (required): {custom}')
+        custom.rmdir()
+        self.assertIn('not detected automatically', agent_status(options, tools)[0])
 
     def test_boundaries_and_existing_data_are_rejected_without_mutation(self):
         for source, private in ((self.base, self.base / 'nested'), (Path.home(), self.base / 'private'),

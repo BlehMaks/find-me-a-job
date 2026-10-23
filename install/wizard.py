@@ -11,7 +11,7 @@ import webbrowser
 
 if not getattr(sys, 'frozen', False):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from fmj.installer import Cancelled, Handoff, Options, Runner, github_login, probe, setup
+from fmj.installer import Cancelled, Handoff, Options, Runner, agent_status, github_login, probe, setup
 
 
 class Wizard:
@@ -62,6 +62,13 @@ class Wizard:
             button = ttk.Button(form, text='Choose…', command=lambda v=variable: self.choose(v))
             button.grid(row=row, column=2, padx=(8, 0))
             self.controls.extend((entry, button))
+        self.desktop_status = tk.StringVar()
+        self.cli_status = tk.StringVar()
+        for status in (self.desktop_status, self.cli_status):
+            ttk.Label(outer, textvariable=status, wraplength=840).pack(anchor='w', pady=(4, 0))
+        for variable in (self.agent, self.interface, self.desktop):
+            variable.trace_add('write', self.reset_agent_status)
+        self.reset_agent_status()
         check = ttk.Checkbutton(outer, text='Allow installation of missing software from the displayed package sources', variable=self.dependencies)
         check.pack(anchor='w', pady=(12, 3))
         self.controls.append(check)
@@ -73,9 +80,10 @@ class Wizard:
         self.progress.pack(fill='x', pady=(0, 8))
         self.output = tk.Text(outer, height=11, wrap='word', font=('Courier', 11), background='#f0f2fb',
                               foreground='#161616', relief='flat', padx=12, pady=10, state='disabled')
-        self.output.pack(fill='both', expand=True)
-        buttons = ttk.Frame(outer)
-        buttons.pack(fill='x', pady=(12, 0))
+        footer = ttk.Frame(outer)
+        footer.pack(side='bottom', fill='x', pady=(12, 0))
+        buttons = ttk.Frame(footer)
+        buttons.pack(fill='x')
         self.plan_button = ttk.Button(buttons, text='Check & review plan', command=lambda: self.start('check'))
         self.plan_button.pack(side='left')
         self.install_button = ttk.Button(buttons, text='Install / retry', command=self.confirm)
@@ -84,10 +92,11 @@ class Wizard:
         self.login_button.pack(side='left')
         self.stop_button = ttk.Button(buttons, text='Stop', command=self.stop, state='disabled')
         self.stop_button.pack(side='right')
-        self.link_button = ttk.Button(outer, text='Open required step', command=self.open_step, state='disabled')
+        self.link_button = ttk.Button(footer, text='Open required step', command=self.open_step, state='disabled')
         self.link_button.pack(anchor='e', pady=(8, 0))
-        self.copy_button = ttk.Button(outer, text='Copy first message', command=self.copy_starter, state='disabled')
+        self.copy_button = ttk.Button(footer, text='Copy first message', command=self.copy_starter, state='disabled')
         self.copy_button.pack(anchor='e', pady=(4, 0))
+        self.output.pack(fill='both', expand=True)
         root.protocol('WM_DELETE_WINDOW', self.close)
         root.after(100, self.poll)
 
@@ -98,6 +107,11 @@ class Wizard:
             value = filedialog.askdirectory(parent=self.root, title='Choose a folder (you can edit the final path)')
         if value:
             variable.set(value)
+
+    def reset_agent_status(self, *_):
+        desktop_mode = self.interface.get() == 'desktop'
+        self.desktop_status.set(f'Desktop app ({"required" if desktop_mode else "optional"}): not checked')
+        self.cli_status.set(f'CLI ({"optional for desktop" if desktop_mode else "required"}): not checked')
 
     def options(self):
         return Options(Path(self.source.get()), Path(self.workspace.get()), self.agent.get(),
@@ -161,14 +175,11 @@ class Wizard:
                 if action == 'check':
                     result = probe(self.runner)
                     self.events.put(('output', plan))
-                    if options.interface == 'desktop':
-                        app = options.desktop_app or result['desktop_apps'][options.agent]
-                        if app and Path(app).exists():
-                            self.events.put(('output', '\nDesktop app found: ' + app))
-                        else:
-                            self.events.put(('output', '\nDesktop app not detected automatically. If installed, select it with Custom desktop app.'))
-                        self.events.put(('output', 'The codex and claude tool entries below are terminal commands (CLI). They are optional for desktop setup.'))
-                    self.events.put(('output', '\nTools and desktop apps (presence only): ' + json.dumps(result, indent=2)))
+                    statuses = agent_status(options, result)
+                    self.events.put(('agent-status', statuses))
+                    self.events.put(('output', '\n' + '\n'.join(statuses)))
+                    dependencies = {key: value for key, value in result.items() if key not in {'codex', 'claude', 'desktop_apps'}}
+                    self.events.put(('output', '\nOther setup tools (presence only): ' + json.dumps(dependencies, indent=2)))
                     self.events.put(('done', 'Plan checked. Account, quota and browser/mail permissions remain unverified.'))
                 elif action == 'login':
                     verified = github_login(self.runner)
@@ -196,6 +207,9 @@ class Wizard:
             kind, value = self.events.get_nowait()
             if kind == 'output':
                 self.write(value)
+            elif kind == 'agent-status':
+                self.desktop_status.set(value[0])
+                self.cli_status.set(value[1])
             elif kind == 'blocked':
                 self.finish()
                 self.status.set(value[0])

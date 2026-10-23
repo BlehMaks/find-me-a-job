@@ -219,6 +219,16 @@ def probe(runner):
     return tools
 
 
+def agent_status(options, tools):
+    app = options.desktop_app or tools.get('desktop_apps', {}).get(options.agent)
+    app = app if app and Path(app).exists() else 'not detected automatically; use Custom desktop app if installed'
+    desktop_mode = options.interface == 'desktop'
+    return (
+        f'Desktop app ({"required" if desktop_mode else "optional"}): {app}',
+        f'CLI ({"optional for desktop" if desktop_mode else "required"}): {tools.get(options.agent) or "not found"}',
+    )
+
+
 def ensure_tools(options, runner):
     tools = probe(runner)
     recipes = {'git': ('git', 'Git.Git'), 'gh': ('gh', 'GitHub.cli'),
