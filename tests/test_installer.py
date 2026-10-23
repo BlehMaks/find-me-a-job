@@ -9,7 +9,7 @@ import threading
 import unittest
 from unittest.mock import patch
 
-from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback
+from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback, probe
 
 
 class InstallerTests(unittest.TestCase):
@@ -18,6 +18,21 @@ class InstallerTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.base = Path(self.temp.name).resolve()
         self.options = Options(self.base / 'source ü;$(echo test)', self.base / 'private ü')
+
+    def test_chatgpt_desktop_is_reported_without_codex_cli(self):
+        app = self.base / 'Applications' / 'ChatGPT.app'
+        app.mkdir(parents=True)
+        for base in (Path('/Applications'), self.base / 'Applications'):
+            expected = base / 'ChatGPT.app'
+            with self.subTest(location=base), patch('fmj.installer.platform.system', return_value='Darwin'), \
+                    patch('fmj.installer.Path.home', return_value=self.base), \
+                    patch('fmj.installer.Path.is_dir', lambda path: path == expected), \
+                    patch('fmj.installer.shutil.which', return_value=None), \
+                    patch('fmj.installer.find_python', return_value=None):
+                result = probe(Runner())
+            self.assertIsNone(result['codex'])
+            self.assertEqual(result['desktop_apps']['codex'], str(expected))
+            self.assertIsNone(result['desktop_apps']['claude'])
 
     def test_boundaries_and_existing_data_are_rejected_without_mutation(self):
         for source, private in ((self.base, self.base / 'nested'), (Path.home(), self.base / 'private'),

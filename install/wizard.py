@@ -161,7 +161,14 @@ class Wizard:
                 if action == 'check':
                     result = probe(self.runner)
                     self.events.put(('output', plan))
-                    self.events.put(('output', '\nTools: ' + json.dumps(result, indent=2)))
+                    if options.interface == 'desktop':
+                        app = options.desktop_app or result['desktop_apps'][options.agent]
+                        if app and Path(app).exists():
+                            self.events.put(('output', '\nDesktop app found: ' + app))
+                        else:
+                            self.events.put(('output', '\nDesktop app not detected automatically. If installed, select it with Custom desktop app.'))
+                        self.events.put(('output', 'The codex and claude tool entries below are terminal commands (CLI). They are optional for desktop setup.'))
+                    self.events.put(('output', '\nTools and desktop apps (presence only): ' + json.dumps(result, indent=2)))
                     self.events.put(('done', 'Plan checked. Account, quota and browser/mail permissions remain unverified.'))
                 elif action == 'login':
                     verified = github_login(self.runner)

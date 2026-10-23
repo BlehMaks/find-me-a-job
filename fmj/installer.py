@@ -215,6 +215,7 @@ def probe(runner):
     env = external_environment()
     tools = {name: shutil.which(name, path=env['PATH']) for name in ('git', 'gh', 'brew', 'winget', 'xelatex', 'pdftoppm', 'codex', 'claude')}
     tools['python'] = find_python(runner)
+    tools['desktop_apps'] = {agent: detect_desktop(agent) or None for agent in ('codex', 'claude')}
     return tools
 
 
