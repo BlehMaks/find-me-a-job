@@ -108,7 +108,9 @@ Use `claude` instead of `codex` for Claude Code. The CLI must already be install
 
 ## Want me to run your search?
 
-**Email [findmeajobai@gmail.com](mailto:findmeajobai@gmail.com)** with your target roles and locations. I can set up the workflow and run the application campaign for you.
+I can set up the workflow and run the application campaign for you as a **paid service**.
+
+**Email [findmeajobai@gmail.com](mailto:findmeajobai@gmail.com)** with your target roles and locations. I'll reply with pricing and service terms.
 
 You'll need:
 
