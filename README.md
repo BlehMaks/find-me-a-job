@@ -8,13 +8,11 @@ Find Me a Job turns Codex or Claude Code into a job-search assistant that learns
 
 ## I built it for my own search
 
-I'm Maksim. I built this while looking for my next role in Germany. I wanted to give an agent my experience once, then have it use that knowledge throughout the search: choosing roles, writing a CV for each one, handling application forms and keeping up with replies.
+I'm Maksim. I was working as an **IT Consultant in Germany** and looking for my next job. I built Find Me a Job during that search to help prepare and submit applications across different sites.
 
-Across my search, I reached **around 25 first-round interviews and received an offer**. My calendar records at least 31 interview appointments across 25 identifiable employer processes, including follow-ups. My saved application records document **170+ distinct, email-confirmed applications** from 16 September to 20 October 2026.
+The search led to **around 25 first-round interviews and an offer for an AI Solutions Developer position**.
 
-The tool grew out of doing this for myself. I kept improving it whenever I had to explain the same project again, tailor another CV or work out what had already been sent. Now I'm sharing the workflow and offering to run it for other people.
-
-The first-round count is my own confirmed recollection. The calendar counts scheduled appointments; the application figure is a conservative lower bound, including steps I completed myself. These are records from my search, not a matched conversion funnel or a hiring guarantee.
+Now I'm sharing the workflow. You can run it with Codex or Claude Code, or have me run the application campaign for you.
 
 ## What it takes off your plate
 
