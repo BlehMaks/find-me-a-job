@@ -22,14 +22,19 @@ class Page(HTMLParser):
         self.images = []
         self.preview_labels = []
         self.template_variants = []
+        self.canonicals = []
 
     def handle_starttag(self, tag, attributes):
         attributes = dict(attributes)
         self.tags.append(tag)
         if "id" in attributes:
             self.ids.add(attributes["id"])
+        if tag == "link" and attributes.get("rel") == "canonical":
+            self.canonicals.append(attributes.get("href"))
         for attribute in ("src", "href"):
             if attribute in attributes:
+                if attribute == "href" and tag == "link" and attributes.get("rel") == "canonical":
+                    continue
                 self.references.append(attributes[attribute])
                 self.reference_context.append((tag, attribute, attributes[attribute]))
         if tag == "article" and attributes.get("class") == "template-card":
@@ -56,6 +61,7 @@ class SiteArtifactTests(unittest.TestCase):
         self.assertEqual(files, ALLOWED)
 
     def test_relative_resources_fragments_and_six_preview_symbols(self):
+        self.assertEqual(self.page.canonicals, ["https://blehmaks.github.io/find-me-a-job/"])
         symbols = ElementTree.parse(SITE / "assets/structures.svg")
         identifiers = {element.attrib["id"] for element in symbols.iter() if "id" in element.attrib}
         self.assertEqual(len(identifiers), 6)
