@@ -100,9 +100,13 @@ def main():
             contents.extractall(source, filter='data')
         notices = build / 'licenses'
         collect_notices(notices)
+        source_revision = build / 'source-revision.txt'
+        source_revision.write_text(revision + '\n', encoding='ascii')
         command = [sys.executable, '-m', 'PyInstaller', '--noconfirm', '--clean', '--windowed',
                    '--name', NAME, '--distpath', str(output), '--workpath', str(build / 'work'),
                    '--specpath', str(build), '--paths', str(source), '--add-data', str(notices) + os.pathsep + 'licenses',
+                   '--add-data', str(source_revision) + os.pathsep + '.',
+                   '--add-data', str(source / 'LICENSE') + os.pathsep + '.',
                    '--add-data', str(source / 'THIRD_PARTY_NOTICES.md') + os.pathsep + '.',
                    '--osx-bundle-identifier', 'org.findmeajob.setup']
         if sys.platform == 'darwin':
@@ -130,7 +134,7 @@ def main():
         dmg_smoke = verify(artifact)
     manifest = {'revision': revision, 'platform': platform.platform(), 'architecture': platform.machine(),
                 'artifact': artifact.name, 'sha256': hashlib.sha256(artifact.read_bytes()).hexdigest(),
-                'bundled_python_tk_smoke': smoke, 'dmg_smoke': dmg_smoke, 'signing': 'private pilot; no Developer ID/notarization or Windows publisher certificate',
+                'bundled_python_tk_smoke': smoke, 'dmg_smoke': dmg_smoke, 'signing': 'unsigned pilot; no Developer ID/notarization or Windows publisher certificate',
                 'publication': 'not performed'}
     (output / 'installer-manifest.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
     print('Native artifact built and launched with bundled Python/Tk. No publication or account login performed.')

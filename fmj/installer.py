@@ -261,7 +261,16 @@ def ensure_tools(options, runner):
 def checkout(options, tools, runner):
     source, _, _ = options.validate()
     git = tools['git']
-    if not source.exists():
+    revision = None
+    if getattr(sys, 'frozen', False):
+        try:
+            revision = (Path(sys._MEIPASS) / 'source-revision.txt').read_text(encoding='ascii').strip()
+        except (AttributeError, OSError, UnicodeError):
+            raise Handoff('The setup build revision is missing or unreadable. Download a complete installer.') from None
+        if not re.fullmatch(r'[0-9a-f]{40}', revision):
+            raise Handoff('The setup build revision is invalid. Download a complete installer.')
+    created = not source.exists()
+    if created:
         source.parent.mkdir(parents=True, exist_ok=True)
         # Clone is never retried over an existing destination or reset in place.
         args = [git, '-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential',
@@ -277,6 +286,12 @@ def checkout(options, tools, runner):
         raise Handoff('Select the repository root, not a nested folder.')
     if runner.run([git, '-C', source, 'status', '--porcelain'], timeout=15).stdout.strip():
         raise Handoff('The checkout has uncommitted changes. Save or review them before installation; nothing was reset.')
+    if revision:
+        if created:
+            runner.run([git, '-C', source, 'checkout', '--detach', revision], timeout=30)
+        actual_revision = runner.run([git, '-C', source, 'rev-parse', 'HEAD'], timeout=15).stdout.strip()
+        if actual_revision != revision:
+            raise Handoff('Existing checkout differs from this setup build. Choose a new source folder; nothing was changed.')
     script = source / 'install' / ('install.ps1' if os.name == 'nt' else 'install.sh')
     if not script.is_file() or script.is_symlink():
         raise Handoff('The reviewed platform installer is missing.')

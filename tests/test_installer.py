@@ -151,6 +151,66 @@ class InstallerTests(unittest.TestCase):
             checkout(self.options, {'git': 'git'}, Runner())
         self.assertEqual(sentinel.read_text(), 'uncommitted')
 
+    def release_remote(self):
+        remote = self.base / 'remote'
+        subprocess.run(['git', 'init', '--initial-branch=main', str(remote)], capture_output=True, check=True)
+        def git(*args):
+            return subprocess.check_output(['git', '-C', str(remote), *args], text=True).strip()
+        git('config', 'user.name', 'Release Test')
+        git('config', 'user.email', 'release@example.com')
+        (remote / 'install').mkdir()
+        for name in ('install.sh', 'install.ps1'):
+            (remote / 'install' / name).write_text('release contents\n')
+        git('add', '.')
+        git('commit', '-m', 'Release source')
+        revision = git('rev-parse', 'HEAD')
+        for name in ('install.sh', 'install.ps1'):
+            (remote / 'install' / name).write_text('later main contents\n')
+        git('commit', '-am', 'Advance main after release build')
+        bundle = self.base / 'bundle'
+        bundle.mkdir()
+        (bundle / 'source-revision.txt').write_text(revision + '\n', encoding='ascii')
+        return remote, bundle, revision, git('rev-parse', 'HEAD')
+
+    def test_frozen_checkout_pins_build_revision_after_remote_main_advances(self):
+        remote, bundle, revision, latest = self.release_remote()
+        self.assertNotEqual(revision, latest)
+        with patch('fmj.installer.ORIGIN', str(remote)), patch.object(sys, 'frozen', True, create=True), \
+                patch.object(sys, '_MEIPASS', str(bundle), create=True):
+            checkout(self.options, {'git': 'git'}, Runner())
+        actual = subprocess.check_output(['git', '-C', str(self.options.source), 'rev-parse', 'HEAD'], text=True).strip()
+        self.assertEqual(actual, revision)
+        self.assertEqual((self.options.source / 'install/install.sh').read_text(), 'release contents\n')
+
+    def test_frozen_checkout_preserves_existing_different_revision(self):
+        remote, bundle, revision, latest = self.release_remote()
+        # Source-launched setup keeps its existing default-branch behavior.
+        with patch('fmj.installer.ORIGIN', str(remote)), patch.object(sys, 'frozen', False, create=True):
+            checkout(self.options, {'git': 'git'}, Runner())
+        def state():
+            return subprocess.check_output(['git', '-C', str(self.options.source), 'status', '--porcelain=v2', '--branch'], text=True)
+        before = state()
+        self.assertIn(latest, before)
+        with patch('fmj.installer.ORIGIN', str(remote)), patch.object(sys, 'frozen', True, create=True), \
+                patch.object(sys, '_MEIPASS', str(bundle), create=True):
+            with self.assertRaisesRegex(Handoff, 'differs from this setup build'):
+                checkout(self.options, {'git': 'git'}, Runner())
+        self.assertEqual(state(), before)
+        self.assertEqual((self.options.source / 'install/install.sh').read_text(), 'later main contents\n')
+
+    def test_frozen_checkout_rejects_missing_or_malformed_revision_before_clone(self):
+        bundle = self.base / 'bundle'
+        bundle.mkdir()
+        metadata = bundle / 'source-revision.txt'
+        for value in (None, b'not-a-revision\n', b'a' * 39, b'g' * 40, b'\xff' * 40):
+            with self.subTest(value=value):
+                if value is not None:
+                    metadata.write_bytes(value)
+                with patch.object(sys, 'frozen', True, create=True), patch.object(sys, '_MEIPASS', str(bundle), create=True):
+                    with self.assertRaisesRegex(Handoff, 'build revision'):
+                        checkout(self.options, {'git': 'git'}, Runner())
+                self.assertFalse(self.options.source.exists())
+
     def test_github_login_failure_does_not_report_authenticated(self):
         class FailedLogin:
             def emit(self, message): pass
