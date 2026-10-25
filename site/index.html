@@ -3,36 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A local career toolkit. Build a verified experience bank, write tailored CVs and keep track of your applications.">
+  <meta name="description" content="A job-search agent for tailored CVs, applications and replies across multiple sites. Built during my own search. Run it yourself or have me run it for you.">
   <meta name="color-scheme" content="light">
-  <title>Find Me a Job — a local career toolkit</title>
-  <link rel="stylesheet" href="styles.css?v=2">
+  <title>Find Me a Job | Let your agent do the application work</title>
+  <link rel="stylesheet" href="styles.css?v=3">
   <link rel="icon" type="image/svg+xml" href="assets/mark.svg?v=2">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="masthead page">
-    <a class="wordmark" href="#main" aria-label="Find Me a Job, home">fmj<span aria-hidden="true">/</span></a>
-    <p class="edition">A LOCAL CAREER TOOLKIT<br>FOR CODEX &amp; CLAUDE DESKTOP</p>
-    <nav aria-label="Main navigation"><a href="#workflow">The work</a><a href="#templates">CV formats</a><a href="#install">Setup <span aria-hidden="true">↓</span></a></nav>
+    <a class="wordmark" href="#main" aria-label="Find Me a Job, home">Find Me a Job<span aria-hidden="true">.</span></a>
+    <nav aria-label="Main navigation"><a href="#story">The story</a><a href="#workflow">How it works</a><a href="#install">Technical setup</a><a class="nav-cta" href="#managed">Run it for me</a></nav>
   </header>
   <main id="main">
     <section class="hero page" aria-labelledby="hero-heading">
-      <div class="hero-top"><span class="label">SOFTWARE FOR THE JOB OF FINDING A JOB</span><span class="label version">LOCAL FILES / v0.1</span></div>
-      <div class="hero-layout">
-        <h1 id="hero-heading">Find me<br>a <span>job.</span></h1>
-        <div class="hero-note"><span class="margin-mark" aria-hidden="true">[ fmj ]</span><p>Your experience, CVs and applications in one working system.</p><p class="body-copy">Your agent interviews you about your work, prepares documents and runs the search with you. Everything starts in a folder on your computer.</p><a class="start-link" href="#install">Set up your workspace <span aria-hidden="true">↘</span></a></div>
+      <div class="hero-copy"><p class="eyebrow">FOR CODEX &amp; CLAUDE CODE</p><h1 id="hero-heading">A job-search agent<br>that goes beyond<br><span>the CV.</span></h1><p class="hero-description">Find suitable roles across different sites. Tailor your CV, work through application forms and follow the replies. Give your agent the context once, then keep the search moving.</p><div class="hero-actions"><a class="button primary" href="#managed">Have me run it for you <span aria-hidden="true">↗</span></a><a class="button secondary" href="#install">Run it yourself</a></div><p class="hero-caption">Your existing agent. A separate private workspace. Your say on the decisions that matter.</p></div>
+      <aside class="founder-card" aria-labelledby="founder-heading"><p class="eyebrow">BUILT FOR MY OWN SEARCH</p><h2 id="founder-heading">From my own search<br> to an offer.</h2><div class="results" aria-label="Founder search results"><div><strong>170+</strong><span>documented applications</span></div><div><strong>~25</strong><span>first-round interviews</span></div><div><strong>1</strong><span>offer received</span></div></div><p class="result-note">Personal results across different periods. <a href="#story">How I counted them ↓</a></p><p>I'm Maksim. This grew out of my own job search in Germany. Now you can run it yourself, or have me handle the campaign.</p><a class="text-link" href="#story">Read the story <span aria-hidden="true">→</span></a></aside>
+    </section>
+    <div class="scope-strip page"><span>Employer career sites</span><span>Job boards</span><span>LinkedIn</span><span>Email alerts &amp; replies</span><p>One search, across the places that matter.</p></div>
+
+    <section id="story" class="chapter page" aria-labelledby="story-heading">
+      <div class="chapter-index"><span class="label">01 / MY OWN SEARCH</span><p>I'm Maksim.<br>I built this for myself.</p></div>
+      <div class="chapter-body"><h2 id="story-heading">I wanted help with the whole search.</h2><p class="intro">I'm Maksim. I built this while looking for my next role in Germany. I wanted to give an agent my experience once, then have it use that knowledge to find roles, tailor CVs, handle forms and keep up with replies.</p>
+
+        <p class="intro">Across my search, I reached around 25 first-round interviews and received an offer. My calendar records at least 31 interview appointments across 25 identifiable employer processes, including follow-ups. The workflow grew as I used it: each application drew on the same experience bank, with its own tailored CV and a record of what happened next.</p><p class="note">Applications: a conservative lower bound of 170 distinct email-confirmed submissions documented from 16 September to 20 October 2026, including steps I completed myself. First rounds: my confirmed recollection. Calendar figures cover January to October 2026 and count scheduled appointments. These figures are not a matched conversion funnel or a hiring guarantee.</p>
       </div>
-      <div class="hero-bottom"><p>For industry, research<br>and creative practice.</p><p>A repository you keep.<br>An agent you already use.</p><a href="https://github.com/BlehMaks/find-me-a-job">Read the source <span aria-hidden="true">↗</span></a></div>
     </section>
 
     <section id="workflow" class="chapter page" aria-labelledby="workflow-heading">
-      <div class="chapter-index"><span class="label">01 / THE WORK</span><p>A search starts<br>before the search.</p></div>
+      <div class="chapter-index"><span class="label">02 / THE WORK</span><p>A search starts<br>before the search.</p></div>
       <div class="chapter-body"><h2 id="workflow-heading">First, get your<br>experience straight.</h2><p class="intro">Old CVs rarely tell the whole story. Start with a few versions, project notes or a conversation. Your agent asks what you built, what you owned and what changed because of it.</p>
         <ol class="work-list">
           <li><span class="row-no">01</span><div><h3>Build the experience bank</h3><p>Resolve dates, responsibilities and conflicting descriptions. Confirm the facts and write several useful versions of each achievement.</p></div><span class="output">VERIFIED KNOWLEDGE</span></li>
           <li><span class="row-no">02</span><div><h3>Get the documents right</h3><p>Choose a CV structure. Use your own writing samples to establish a voice. Review a general CV before tailoring it to individual roles.</p></div><span class="output">LaTeX + PDF</span></li>
-          <li><span class="row-no">03</span><div><h3>Agree on the search</h3><p>Brief the agent on your market, interests and deal-breakers. Approve resources and permissions, including referrals and outreach.</p></div><span class="output">AN APPROVED BRIEF</span></li>
+          <li><span class="row-no">03</span><div><h3>Search across sites</h3><p>Use employer career pages, job boards, LinkedIn and email alerts. Agree on roles, locations and deal-breakers, then apply through official employer routes where available. Access depends on your agent and connected tools.</p></div><span class="output">AN APPROVED BRIEF</span></li>
           <li><span class="row-no">04</span><div><h3>Keep applications moving</h3><p>Track companies, opportunities, documents and replies. Save blocked steps, reconcile uncertain submissions and prepare for interviews.</p></div><span class="output">A SEARCH WITH MEMORY</span></li>
         </ol>
         <p class="note">You confirm the facts. The agent can apply within your agreed scope. Appointments, offers, payments and final commitments stay with you.</p>
@@ -40,7 +44,7 @@
     </section>
 
     <section id="templates" class="chapter page" aria-labelledby="templates-heading">
-      <div class="chapter-index"><span class="label">02 / THE DOCUMENTS</span><p>Structure follows<br>the profession.</p><span class="file-label">.tex / .pdf</span></div>
+      <div class="chapter-index"><span class="label">03 / THE DOCUMENTS</span><p>Structure follows<br>the profession.</p><span class="file-label">.tex / .pdf</span></div>
       <div class="chapter-body"><div class="section-heading"><h2 id="templates-heading">Choose what<br>comes first.</h2><p>A research CV and a portfolio-led career need different structures. During setup, choose from two or three relevant options.</p></div>
       <div class="template-grid">
         <article class="template-card" data-family="industry" data-variant="experience-first"><div class="preview"><svg role="img" aria-label="Industry chronology structure: summary, skills, experience, projects, education and publications" viewBox="0 0 220 280"><use href="assets/structures.svg?v=2#industry-experience-first"></use></svg></div><div class="template-title"><h3>Experience first</h3><span>INDUSTRY / A</span></div><p>A clear chronology with achievements at the centre.</p></article>
@@ -55,11 +59,20 @@
       </div>
     </section>
 
+    <section id="managed" class="chapter page managed" aria-labelledby="managed-heading">
+      <div class="chapter-index"><span class="label">04 / LET ME RUN IT</span><p>Your search.<br>With me at the controls.</p></div>
+      <div class="chapter-body"><h2 id="managed-heading">Want me to run<br>this for you?</h2><p class="intro">I can set up the workflow and run the application campaign on your behalf. We agree on your target roles, locations and permissions before applications begin.</p>
+        <p class="contact-status">Managed pilot · Contact details coming soon</p>
+        <h3 class="requirements-heading">What you'll need</h3><ul class="requirements"><li>An active paid subscription that includes <strong>Claude Code or Codex</strong>, with enough quota for the campaign.</li><li>A <strong>mailbox</strong> you authorise me to use for applications and replies.</li><li>A <strong>LinkedIn account linked to that mailbox</strong>.</li></ul>
+        <p class="note">We'll arrange access together and agree on service terms before starting. You confirm your experience and answer personal questions; I handle the campaign work. You attend interviews and make the final decisions. Telegram supports questions and pause/resume.</p>
+      </div>
+    </section>
+
     <section id="install" class="chapter setup page" aria-labelledby="install-heading">
-      <div class="chapter-index"><span class="label">03 / THE SETUP</span><p>Start on<br>your computer.</p><a class="small-link" href="https://github.com/BlehMaks/find-me-a-job">Repository ↗</a></div>
-      <div class="chapter-body"><h2 id="install-heading">One setup app.<br>Your own workspace.</h2><p class="intro">Choose your agent. Review the setup. Keep your experience and documents in a separate private folder.</p>
+      <div class="chapter-index"><span class="label">05 / THE TECHNICAL SETUP</span><p>Start on<br>your computer.</p><a class="small-link" href="https://github.com/BlehMaks/find-me-a-job">Repository ↗</a></div>
+      <div class="chapter-body"><h2 id="install-heading">The technical bit.<br>Run it yourself.</h2><p class="intro">Choose your agent. Review the setup. Keep your experience and documents in a separate private folder.</p>
         <ol class="setup-list">
-          <li><span class="row-no">01</span><div><h3>Get the installer</h3><p>Download FindMeAJob-Setup for macOS or Windows from a successful <a href="https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml">private installer build</a>. Your GitHub account needs project access. Extract the download, then open the DMG on Mac or the EXE on Windows. On Mac, drag Find Me a Job Setup into Applications and open the copied app from there.</p><p class="small">Pilot builds are unsigned. The setup app includes Python and its interface; no terminal is needed to open it. A public release is still to come.</p></div></li>
+          <li><span class="row-no">01</span><div><h3>Get the installer</h3><p>Download FindMeAJob-Setup for macOS or Windows from a successful <a href="https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml">installer build</a>. Sign in to GitHub to download the artifact for your platform. Extract the download, then open the DMG on Mac or the EXE on Windows. On Mac, drag Find Me a Job Setup into Applications and open the copied app from there.</p><p class="small">These are unsigned pilot builds. The setup app includes Python and its interface; no terminal is needed to open it. A signed stable release is still to come.</p></div></li>
           <li><span class="row-no">02</span><div><h3>Review what gets installed</h3><p>Choose <a href="https://learn.chatgpt.com/docs/app">Codex / ChatGPT desktop</a> or <a href="https://code.claude.com/docs/en/desktop-quickstart">Claude Desktop</a>. The wizard checks existing software, clones the source and prepares the private environment. Missing software installation needs your permission; some native steps need your confirmation.</p></div></li>
           <li><span class="row-no">03</span><div><h3>Open your project</h3><p>After PDF checks pass, use Copy first message. In Codex open the source folder shown by the wizard. In Claude, choose Code → Local → Open folder… and select it. Paste the message and grant access to the separate private folder.</p></div></li>
           <li><span class="row-no">04</span><div><h3>Confirm access. Begin with your experience.</h3><p>Sign in to your agent and confirm its plan and budget. We recommend paid access for sustained campaigns; paid plans also have limits. Browser and mailbox permissions are checked separately. The first conversation builds your experience base, before applications begin.</p><p class="small">Setup never buys a subscription or changes billing. Feedback is an explicit choice; signing in to GitHub does not send anything.</p></div></li>
@@ -76,10 +89,10 @@
     </section>
 
     <section class="chapter page practical" aria-labelledby="practical-heading">
-      <div class="chapter-index"><span class="label">04 / BEFORE YOU START</span><p>A few practical<br>details.</p></div>
-      <div class="chapter-body"><h2 id="practical-heading">Know where<br>things stand.</h2><div class="practical-grid"><div><h3>Your files stay with you</h3><p>Knowledge, documents and activity live in a separate private folder. Your chosen model provider and connected services still process the information they need.</p></div><div><h3>Access is checked in the app</h3><p>Installing software does not prove login, available quota or browser control. Missing capabilities remain explicit steps to complete.</p></div><div><h3>Managed setup is optional</h3><p>An operator can provision the environment. A bound Telegram channel handles personal questions and pause/resume; service arrangements stay with the operator.</p></div><div><h3>Feedback is a choice</h3><p>Nothing is sent upstream by default. You can allow reviewed, generic improvements; personal records and client memory are never feedback attachments.</p></div></div><p class="note">This is software to help you run a search. It cannot promise interviews or offers. Required login, CAPTCHA and agreement handoffs still apply.</p></div>
+      <div class="chapter-index"><span class="label">06 / BEFORE YOU START</span><p>A few practical<br>details.</p></div>
+      <div class="chapter-body"><h2 id="practical-heading">Know where<br>things stand.</h2><div class="practical-grid"><div><h3>Your files stay with you</h3><p>Knowledge, documents and activity live in a separate private folder. Your chosen model provider and connected services still process the information they need.</p></div><div><h3>Access is checked in the app</h3><p>Installing software does not prove login, available quota or browser control. Missing capabilities remain explicit steps to complete.</p></div><div><h3>Managed setup is optional</h3><p>Want help running the campaign? <a href="#managed">Read about managed use.</a> A bound Telegram channel handles personal questions and pause/resume.</p></div><div><h3>Feedback is a choice</h3><p>Nothing is sent upstream by default. You can allow reviewed, generic improvements; personal records and client memory are never feedback attachments.</p></div></div><p class="note">This is software to help you run a search. It cannot promise interviews or offers. Required login, CAPTCHA and agreement handoffs still apply.</p></div>
     </section>
   </main>
-  <footer class="page footer"><a class="wordmark" href="#main">fmj<span aria-hidden="true">/</span></a><p>Find Me a Job<br><span>A local career toolkit.</span></p><a href="#install">Back to setup ↑</a></footer>
+  <footer class="page footer"><a class="wordmark" href="#main">Find Me a Job<span aria-hidden="true">.</span></a><p>Find Me a Job<br><span>Let your agent do the application work.</span></p><a href="#install">Back to setup ↑</a></footer>
 </body>
 </html>
