@@ -90,7 +90,7 @@ Use `claude` instead of `codex` for Claude Code. The CLI must already be install
 | macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
 | Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe) | Launch the EXE. |
 
-These are **unsigned pilot builds**; macOS builds are not notarized. Your OS may warn or block them. You can use the source route above. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
+These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. You can use the source route above. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
 
 The app bundles Python and its interface. Choose your agent and separate source/private folders, review the plan, then start setup. When checks pass, use **Copy first message** and open the displayed source folder in your agent. Account, quota, browser and mailbox access are checked separately. See the [support matrix](docs/support-matrix.md) for tested platforms and limitations.
 
