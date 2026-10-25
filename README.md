@@ -1,12 +1,49 @@
 # Find Me a Job
 
-A local workspace for a career-search agent: turn experience into confirmed knowledge, prepare tailored LaTeX/PDF documents, research opportunities and run an authorized application campaign. Industry, academic and creative careers have different workflows. Start with the person's account of how their profession hires.
+**Let your agent do the application work.**
 
-The interface is your existing Codex or Claude Code agent. There is no hosted account or web dashboard. An optional operator-managed setup adds bound client questions and pause/resume through Telegram.
+Find Me a Job turns Codex or Claude Code into a job-search assistant that learns your experience, finds suitable roles, prepares tailored CVs and helps submit applications. It keeps track of what was sent and what came back, so the next session can pick up where you left off.
+
+**[See the product page](https://blehmaks.github.io/find-me-a-job/) · [Run it yourself](#start-with-the-desktop-installer-recommended) · [Have me run it for you](#want-me-to-run-your-search)**
+
+## I built it for my own search
+
+I'm Maksim. I built this while looking for my next role in Germany. I wanted to give an agent my experience once, then have it use that knowledge throughout the search: choosing roles, writing a CV for each one, handling application forms and keeping up with replies.
+
+Across my search, I reached **around 25 first-round interviews and received an offer**. My calendar records at least 31 interview appointments across 25 identifiable employer processes, including follow-ups. My saved application records document **170+ distinct, email-confirmed applications** from 16 September to 20 October 2026.
+
+The tool grew out of doing this for myself. I kept improving it whenever I had to explain the same project again, tailor another CV or work out what had already been sent. Now I'm sharing the workflow and offering to run it for other people.
+
+The first-round count is my own confirmed recollection. The calendar counts scheduled appointments; the application figure is a conservative lower bound, including steps I completed myself. These are records from my search, not a matched conversion funnel or a hiring guarantee.
+
+## What it takes off your plate
+
+- **Explaining your career again.** Start with old CVs, project notes or a conversation. The agent builds a reusable experience bank and asks you to resolve gaps and contradictions.
+- **Rewriting every application.** Get a CV tailored to the actual role, plus a cover letter when needed. The workflow checks the compiled PDF's text and layout and asks an independent reviewer to critique it.
+- **Repeating the same search on different sites.** Use employer career pages, job boards, LinkedIn and email alerts within the access available to your agent. The search is not limited to one job site; applications go through official employer routes where available.
+- **Losing track of what happened.** Keep documents, submissions, acknowledgements and replies separate. Resume blocked forms and prepare for interviews with the history at hand.
+
+Use **Codex or Claude Code**, on your computer or in an operator-managed setup. Industry, academic and creative careers have different workflows and CV structures. Your personal records live in a separate private workspace; the chosen model provider and connected services process the data they need.
+
+## Want me to run your search?
+
+**Managed pilot: contact details coming soon.** I can set up and operate the workflow on your behalf, with an agreed search scope and permissions.
+
+For this managed service, you'll need:
+
+- **An active paid subscription that includes Claude Code or Codex**, with enough quota for the campaign.
+- **A mailbox** you authorise me to use for job applications and replies.
+- **A LinkedIn account linked to that mailbox.**
+
+We'll arrange access together and agree on the service terms before starting. You confirm your experience and answer personal questions; I handle the campaign work within the agreed scope. Interviews, offers and final commitments stay with you. Managed mode supports questions and pause/resume through Telegram.
+
+## Technical setup
+
+The interface is your existing Codex or Claude Code agent. There is no hosted account or web dashboard. The sections below explain installation and the runtime; you can also read the [operator guide](docs/managed.md).
 
 ## Start with the desktop installer (recommended)
 
-1. Download **FindMeAJob-Setup** for [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39633618699/artifacts/12360688210) or [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39630554386/artifacts/12359196363), then extract the downloaded ZIP. These links update automatically after successful builds on the default branch, separately for each operating system. Sign in to GitHub with repository access to download; these private unsigned pilot builds are not a public release. If an artifact has expired, request a new [installer build](https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml).
+1. Download **FindMeAJob-Setup** for [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39633618699/artifacts/12360688210) or [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39630554386/artifacts/12359196363), then extract the downloaded ZIP. These links update automatically after successful builds on the default branch, separately for each operating system. Sign in to GitHub to download these unsigned pilot builds. They are early test builds, not a signed stable release. If an artifact has expired, request a new [installer build](https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml).
 2. On macOS open the `.dmg`, drag **Find Me a Job Setup** into **Applications**, then open it from Applications; on Windows launch the `.exe`. The wizard includes Python and Tk: no terminal, GitHub Desktop or preinstalled Python is needed to open it.
 3. Select Codex or Claude, keep **desktop**, and choose separate source/private folders. Review the detected tools and setup plan. Allow missing software installation if wanted; native package managers may request your confirmation. GitHub authorization is a separate button. Existing folders and settings are checked before reuse.
 4. After runtime and PDF checks pass, use **Copy first message**. Open the displayed source folder in your agent: add/open the local project in Codex, or choose **Code → Local → Open folder…** in Claude. Paste the message and grant access to the separate private folder when requested.
@@ -75,7 +112,7 @@ Upstream feedback requires an explicit enable/disable choice; unset sends nothin
 
 ## Public source boundary
 
-This repository contains reviewed product source and synthetic examples only.
+This repository contains reviewed product source, synthetic examples and the founder's explicitly published story and service contact. Candidate records stay private.
 Keep candidate documents, account details, correspondence, browser state,
 application records, interview notes, experiments and development plans outside
 this checkout. An ignored file is still a local file; ignoring it does not make
@@ -102,7 +139,7 @@ Start with clean history and choose a deliberate public commit identity.
 Private data may be sent to a chosen model provider during agent use; local file
 storage does not imply local model inference.
 
-Original-product licensing and public release are owner decisions; the bundled Humanizer license does not grant a license for the original product. See [third-party notices](THIRD_PARTY_NOTICES.md). GitHub Pages deployment is manual, gated and uploads only `site/`. Installation never publishes. There are no guarantees of ATS acceptance, detector results, account availability, interviews or offers. See [pilot and release checks](docs/pilot.md).
+The source is published for inspection. No license has been granted for the original product yet; the bundled Humanizer has its own license. See [third-party notices](THIRD_PARTY_NOTICES.md). GitHub Pages deployment is manual, gated and uploads only `site/`. Installation never publishes. There are no guarantees of ATS acceptance, detector results, account availability, interviews or offers. See [pilot and release checks](docs/pilot.md).
 
 ## Development checks
 

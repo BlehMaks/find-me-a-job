@@ -1,4 +1,4 @@
-name: Build private desktop installers
+name: Build desktop pilot installers
 on:
   workflow_dispatch:
     inputs:
