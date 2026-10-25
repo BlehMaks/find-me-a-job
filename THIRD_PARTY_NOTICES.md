@@ -1,6 +1,6 @@
 # Third-party components and external dependencies
 
-Reviewed 2026-10-20. `dependencies.lock.json` identifies bundled files, exact revisions/hashes, externally installed tools and optional services separately. This inventory is not a choice of license for the original product or a warranty of legal clearance. Check selected versions and distributor notices before a release.
+Reviewed 2026-10-25. The original Find Me a Job product is licensed under the [MIT License](LICENSE), copyright (c) 2026 Maksim Blekhshtein. Third-party components retain their own copyrights and terms below. `dependencies.lock.json` identifies bundled files, exact revisions/hashes, externally installed tools and optional services separately. This inventory is not a warranty of legal clearance. Check selected versions and distributor notices before a release.
 
 ## Bundled Humanizer
 
@@ -27,4 +27,4 @@ Local Python package builds use externally installed `setuptools` (MIT) and opti
 
 ## Native setup application
 
-The optional graphical setup artifacts are built with PyInstaller 6.22.3 and include their Python interpreter and Tcl/Tk GUI libraries. The build collects the actual Python license, Tcl/Tk license terms and PyInstaller COPYING (including its bootloader exception) into the application's `licenses` resources. PyInstaller licensing permits distribution of bundled applications under the application's own license subject to those terms; it does not select a license for this product. The artifacts are unsigned pilot builds without a publisher certificate or notarization. Native dependencies such as Git, GitHub CLI, agent apps and TeX/Poppler are installed separately from their package sources; they are not embedded in the setup application. The original product's license remains unspecified; public source availability does not grant redistribution rights.
+The optional graphical setup artifacts are built with PyInstaller 6.22.3 and include their Python interpreter and Tcl/Tk GUI libraries. The build collects the actual Python license, Tcl/Tk license terms and PyInstaller COPYING (including its bootloader exception) into the application's `licenses` resources, and includes this notice and the original product's MIT LICENSE at the resource root. PyInstaller licensing permits distribution of bundled applications under the application's own license subject to those terms. The artifacts are unsigned pilot builds without a publisher certificate or notarization. Native dependencies such as Git, GitHub CLI, agent apps and TeX/Poppler are installed separately from their package sources; they are not embedded in the setup application. Preserve all applicable licenses and notices when redistributing the artifacts.

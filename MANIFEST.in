@@ -6,6 +6,7 @@ include .gitignore
 include .public-files.json
 include AGENTS.md
 include CLAUDE.md
+include LICENSE
 include MANIFEST.in
 include README.md
 include THIRD_PARTY_NOTICES.md

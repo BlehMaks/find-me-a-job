@@ -11,7 +11,7 @@ Use a separate computer or clean OS account and synthetic examples first. Consen
 
 A real-person usability gate requires a consenting participant other than the source candidate. A second computer proves an installation path, not that participant gate. Report synthetic journeys, contract tests, PDF builds, authenticated browser operation and real submissions separately.
 
-Before release, review the public tree, reachable history, identities, tags, notices, wheel/sdist and site-only payload. Choose an explicit original-product license and obtain the owner's publication decision. Never publish private plans, records, traces or experiment cases. The Pages workflow requires a deliberate release-review input; installation does not trigger it.
+Before release, review the public tree, reachable history, identities, tags, notices, wheel/sdist and site-only payload. The original product uses the [MIT License](../LICENSE); native setup apps are currently unsigned. Preserve bundled third-party notices and describe the pilot's actual verification limits. Never publish private plans, records, traces or experiment cases. The Pages workflow requires a deliberate release-review input; installation does not trigger it.
 
 ## Public source boundary
 
@@ -42,7 +42,7 @@ Start with clean history and choose a deliberate public commit identity.
 Private data may be sent to a chosen model provider during agent use; local file
 storage does not imply local model inference.
 
-The source is published for inspection. No license has been granted for the original product yet; the bundled Humanizer has its own license. See [third-party notices](../THIRD_PARTY_NOTICES.md). GitHub Pages deployment is manual, gated and uploads only `site/`. Installation never publishes. There are no guarantees of ATS acceptance, detector results, account availability, interviews or offers. See [pilot and release checks](#private-pilot-and-release-checks).
+The original product is available under the [MIT License](../LICENSE); the bundled Humanizer retains its own MIT copyright and notice. See [third-party notices](../THIRD_PARTY_NOTICES.md) for other component terms. GitHub Pages deployment is manual, gated and uploads only `site/`. Installation never publishes. There are no guarantees of ATS acceptance, detector results, account availability, interviews or offers. See [pilot and release checks](#private-pilot-and-release-checks).
 
 ## Development checks
 
@@ -53,4 +53,4 @@ python scripts/check_public_tree.py --history
 
 PDF tests need the document tools above and `pypdf`; unavailable dependencies produce explicit skips. Installer shim tests prove argument/path behavior, not provider authentication. Keep private test results, replay cases and development plans outside the source repository.
 
-For local distribution checks, install the development tool `build` in an external environment and run `python scripts/build_release.py --output /absolute/new-package-directory` from a clean committed checkout. It builds wheel/sdist, neutralizes source-archive ownership metadata and checks exact approved paths, content and required notices. This does not choose a license or publish a package.
+For local distribution checks, install the development tool `build` in an external environment and run `python scripts/build_release.py --output /absolute/new-package-directory` from a clean committed checkout. It builds wheel/sdist with the original MIT LICENSE, neutralizes source-archive ownership metadata and checks exact approved paths, content and required notices. This does not publish a package.

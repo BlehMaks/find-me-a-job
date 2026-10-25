@@ -52,7 +52,7 @@ def load_manifest(path):
 
 
 def required_payload(approved):
-    return {"AGENTS.md", "THIRD_PARTY_NOTICES.md", "skills/humanizer/SKILL.md", "skills/humanizer/LICENSE",
+    return {"AGENTS.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "skills/humanizer/SKILL.md", "skills/humanizer/LICENSE",
             "fmj/__init__.py", "fmj/__main__.py"} | {path for path in approved if path.startswith(("schemas/", "templates/"))}
 
 
@@ -67,6 +67,8 @@ def _wheel_path(name, distribution, approved):
     data_root = distribution + ".data"
     if len(parts) == 2 and parts[0] == metadata_root and parts[1] in WHEEL_METADATA:
         return None
+    if parts == [metadata_root, "licenses", "LICENSE"] and "LICENSE" in approved:
+        return "LICENSE"
     if len(parts) > 4 and parts[:4] == [data_root, "data", "share", "find-me-a-job"]:
         mapped = "/".join(parts[4:])
     elif parts[0] == "fmj":
@@ -151,6 +153,8 @@ def inspect_archive(archive, approved=None, *, manifest=None):
                         # Empty private directories are also outside the release.
                         prefix = member.filename.rstrip("/") + "/"
                         allowed_names = {distribution + ".dist-info/" + name for name in WHEEL_METADATA}
+                        if "LICENSE" in approved:
+                            allowed_names.add(distribution + ".dist-info/licenses/LICENSE")
                         allowed_names |= {distribution + ".data/data/share/find-me-a-job/" + path for path in approved}
                         allowed_names |= {path for path in approved if path.startswith("fmj/")}
                         if member.file_size != 0 or not any(name.startswith(prefix) for name in allowed_names):

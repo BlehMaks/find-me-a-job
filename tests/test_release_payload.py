@@ -25,7 +25,7 @@ class ReleasePayloadTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.approved = {'AGENTS.md', 'THIRD_PARTY_NOTICES.md', 'skills/humanizer/SKILL.md',
+        self.approved = {'AGENTS.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md', 'skills/humanizer/SKILL.md',
                          'skills/humanizer/LICENSE', 'schemas/fact.json', 'templates/industry/base.tex',
                          'fmj/__init__.py', 'fmj/__main__.py'}
         self.distribution = 'find_me_a_job-0.1.0'
@@ -71,6 +71,15 @@ class ReleasePayloadTests(unittest.TestCase):
         self.assertEqual(inspect_archive(self.wheel(),self.approved),[])
         self.assertEqual(inspect_archive(self.sdist(),self.approved),[])
 
+    def test_wheel_license_metadata_is_reviewed_required_payload(self):
+        entries = self.wheel_entries()
+        license_text = entries.pop(self.distribution + '.data/data/share/find-me-a-job/LICENSE')
+        license_path = self.distribution + '.dist-info/licenses/LICENSE'
+        self.assertEqual(inspect_archive(self.wheel(entries, metadata={license_path: license_text}), self.approved), [])
+        self.assert_blocked(self.wheel(entries))
+        self.assert_blocked(self.wheel(entries, metadata={license_path: b'client' + b'@' + b'private.test'}))
+        self.assert_blocked(self.wheel(entries, metadata={license_path + '.unknown': license_text}))
+
     def test_private_unapproved_member_and_path_traversal(self):
         for name in ('private/client.json','../escaped.txt','/absolute.txt','fmj/../client.txt','fmj\\client.txt'):
             with self.subTest(name=name):
@@ -100,7 +109,7 @@ class ReleasePayloadTests(unittest.TestCase):
         self.assertEqual(inspect_archive(self.sdist(pax={'mtime':'123.5'}),self.approved),[])
 
     def test_mandatory_workflows_licenses_schemas_and_templates_present(self):
-        for required in ('AGENTS.md','skills/humanizer/LICENSE','schemas/fact.json','templates/industry/base.tex'):
+        for required in ('AGENTS.md','LICENSE','skills/humanizer/LICENSE','schemas/fact.json','templates/industry/base.tex'):
             entries=self.wheel_entries();entries.pop(self.distribution+'.data/data/share/find-me-a-job/'+required)
             self.assert_blocked(self.wheel(entries))
 
