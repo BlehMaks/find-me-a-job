@@ -1,10 +1,14 @@
+<p align="center"><img src="site/assets/mark.svg" alt="Find Me a Job" width="72"></p>
+
 # Find Me a Job
+
+[![Source checks](https://github.com/BlehMaks/find-me-a-job/actions/workflows/check.yml/badge.svg)](https://github.com/BlehMaks/find-me-a-job/actions/workflows/check.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 **Let your agent do the application work.**
 
 Turn Codex or Claude Code into a job-search assistant that knows your experience, prepares tailored CVs and helps you apply across different sites. Keep applications and replies in one private workspace, so you can pick up where you left off.
 
-[Explore the website](https://blehmaks.github.io/find-me-a-job/) · [Run it yourself](#start-with-the-desktop-installer-recommended) · [Have me run it for you](#want-me-to-run-your-search)
+[Explore the website](https://blehmaks.github.io/find-me-a-job/) · [Quick start](#quick-start-without-installers) · [Have me run it for you](#want-me-to-run-your-search)
 
 ## What it does
 
@@ -21,31 +25,44 @@ I'm Maksim. I was working as an **IT Consultant in Germany** and looking for my 
 
 The search led to **around 25 first-round interviews and an offer for an AI Solutions Developer position**.
 
-## Start with the desktop installer (recommended)
+## Before you start
 
-### 1. Download and open the setup app
+- **Codex or Claude Code**, with access to your local project folder. Use a paid plan with enough quota for a sustained search.
+- **Your experience:** an existing CV, project notes, or time to talk through your work.
+- **A separate private folder** for your documents and applications. Keep personal data outside this repository.
+- Browser and mailbox access for submitting applications and following up. Your agent's available integrations determine which steps it can perform.
 
-| Download | Open it |
-| --- | --- |
-| [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39633618699/artifacts/12360688210) | Extract the ZIP, open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
-| [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/actions/runs/39630554386/artifacts/12359196363) | Extract the ZIP and launch the EXE. |
+## Quick start without installers
 
-GitHub sign-in is required for downloads. These are unsigned pilot builds. If a download has expired, open the [installer builds](https://github.com/BlehMaks/find-me-a-job/actions/workflows/installer.yml).
+### 1. Get the source
 
-### 2. Choose your agent and folders
+Clone the first release with Git:
 
-Select **Codex** or **Claude**, keep **desktop**, and choose separate source and private-workspace folders. Review the setup plan, then let the wizard prepare the tools you approve. The setup app includes its own Python and interface.
+```sh
+git clone --branch v0.1.0 https://github.com/BlehMaks/find-me-a-job.git
+cd find-me-a-job
+```
 
-### 3. Open the project and start talking
+Or download the **Source code (zip)** from [Releases](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) and extract it. No setup application is required.
 
-After the checks pass, select **Copy first message**. Open the displayed source folder in your agent, paste the message and grant access to the private folder. Start with your experience; agree on the search scope before applications begin.
+### 2. Open the folder in your agent
 
-Your agent account, available quota, browser and mailbox access are checked separately. Paid access is recommended for sustained campaigns.
+Open the cloned or extracted folder in Codex or Claude Code. Paste this to get started:
+
+> Read AGENTS.md and the installation guide. Review the setup scripts and help me prepare a private workspace outside this checkout. Show me the setup plan before installing dependencies. Then help me turn my experience into a CV and agree on the roles and locations for my search.
+
+The agent can walk you through the source setup. Python 3.11+, Git, XeLaTeX and Poppler are needed for the full document workflow; the [installation guide](docs/install.md) covers each platform. Grant the agent access to your private folder when prompted.
+
+### 3. Start with your experience
+
+Add your existing CV and notes to the private folder, or describe your work in the chat. Confirm the facts, review your first CV, then agree on a campaign. The same workspace keeps your applications, replies and next steps together.
 
 <details>
-<summary>Manual setup, CLI or Linux</summary>
+<summary><strong>Terminal setup: macOS, Linux and Windows</strong></summary>
 
-From a reviewed clone, the CLI route is:
+From the cloned folder, with the [prerequisites](docs/install.md) installed:
+
+**macOS / Linux**
 
 ```sh
 sh install/install.sh --interface cli --agent codex \
@@ -53,9 +70,29 @@ sh install/install.sh --interface cli --agent codex \
 "$HOME/fmj-private.venv/bin/fmj" run --workspace "$HOME/fmj-private"
 ```
 
-Use `--agent claude` for Claude Code. See the [installation guide](docs/install.md) for manual desktop setup, Windows PowerShell, dependencies, offline use and resuming an interrupted setup. The [support matrix](docs/support-matrix.md) records what has actually been tested.
+**Windows PowerShell**
+
+```powershell
+.\install\install.ps1 -Interface cli -Agent codex `
+  -Workspace "$env:USERPROFILE\fmj-private" -Yes
+& "$env:USERPROFILE\fmj-private.venv\Scripts\fmj.exe" run `
+  --workspace "$env:USERPROFILE\fmj-private"
+```
+
+Use `claude` instead of `codex` for Claude Code. The CLI must already be installed and authenticated. For desktop use, select `--interface desktop` / `-Interface desktop` and open the source folder in your app. See the guide for dependency installation, offline use and resuming setup.
 
 </details>
+
+## Optional desktop setup app
+
+| Platform | Download | Open it |
+| --- | --- | --- |
+| macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
+| Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe) | Launch the EXE. |
+
+These are **unsigned pilot builds**; macOS builds are not notarized. Your OS may warn or block them. You can use the source route above. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
+
+The app bundles Python and its interface. Choose your agent and separate source/private folders, review the plan, then start setup. When checks pass, use **Copy first message** and open the displayed source folder in your agent. Account, quota, browser and mailbox access are checked separately. See the [support matrix](docs/support-matrix.md) for tested platforms and limitations.
 
 ## Want me to run your search?
 
@@ -83,4 +120,4 @@ We'll agree on access, scope and service terms before starting. You confirm your
 
 Keep personal documents outside this checkout. Your chosen model provider and connected services process the data they need. Feedback is optional and nothing is sent upstream by default.
 
-The source is available for inspection; an original-product license has not yet been specified. See [third-party notices](THIRD_PARTY_NOTICES.md). Interviews and offers are not guaranteed.
+Released under the [MIT license](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for bundled components. Interviews and offers are not guaranteed.
