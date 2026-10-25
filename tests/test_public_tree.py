@@ -16,6 +16,14 @@ class PublicTreeTest(unittest.TestCase):
     def test_safe_examples(self):
         self.assertEqual([], guard.inspect_blob("README.md", "100644", b"candidate@example.com"))
 
+    def test_service_contact_is_exact_and_page_scoped(self):
+        address = guard.PUBLIC_SERVICE_CONTACT.encode()
+        for path in guard.PUBLIC_CONTACT_PATHS:
+            self.assertEqual([], guard.inspect_blob(path, "100644", address, {path}))
+            for other in (b"other@" + b"gmail.com", b"prefix." + address, address + b".test"):
+                self.assertTrue(guard.inspect_blob(path, "100644", other, {path}))
+        self.assertTrue(guard.inspect_blob("fmj/store.py", "100644", address, {"fmj/store.py"}))
+
     def test_sensitive_content(self):
         samples = [
             b"candidate@" + b"mail.test", b"/" + b"Users/example/private",

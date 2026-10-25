@@ -20,6 +20,9 @@ PATTERNS = {
     "personal profile URL": r"linkedin\.com/in/(?!example(?:[-/\s]|$)|synthetic-)[\w%-]+",
 }
 EMAIL = re.compile(r"[\w.+-]+@([A-Za-z0-9.-]+\.[A-Za-z]{2,})")
+# Owner-approved public service contact, restricted to the two product pages.
+PUBLIC_SERVICE_CONTACT = "@".join(("findmeajobai", "gmail.com"))
+PUBLIC_CONTACT_PATHS = {"README.md", "site/index.html"}
 
 
 def inspect_blob(path, mode, blob, approved=None):
@@ -38,6 +41,8 @@ def inspect_blob(path, mode, blob, approved=None):
         if re.search(pattern, text, re.IGNORECASE):
             issues.append(label)
     for match in EMAIL.finditer(text):
+        if path in PUBLIC_CONTACT_PATHS and match.group(0) == PUBLIC_SERVICE_CONTACT:
+            continue
         domain = match.group(1).lower()
         if domain not in {"example.com", "example.org", "example.net"} and not domain.endswith(".invalid"):
             issues.append("non-synthetic email address")

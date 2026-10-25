@@ -25,7 +25,7 @@ Use **Codex or Claude Code**, on your computer or in an operator-managed setup. 
 
 ## Want me to run your search?
 
-**Managed pilot: contact details coming soon.** I can set up and operate the workflow on your behalf, with an agreed search scope and permissions.
+**Email [findmeajobai@gmail.com](mailto:findmeajobai@gmail.com).** I can set up and operate the workflow on your behalf, with an agreed search scope and permissions.
 
 For this managed service, you'll need:
 
