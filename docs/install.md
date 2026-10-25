@@ -4,7 +4,7 @@ This is a repository used by an agent, not a hosted application. Use the native 
 
 ## Native graphical installer
 
-The optional graphical route is **FindMeAJob-Setup**, a standalone setup application for macOS and Windows. It bundles the interpreter and Tk UI, so opening it does not require Python, a terminal or an installed agent. It provisions a separate system Python/venv for the actual workspace; the frozen setup interpreter is not used as a long-lived runtime.
+The recommended route is **FindMeAJob-Setup**, a standalone setup application for macOS and Windows. It bundles the interpreter and Tk UI, so opening it does not require Python, a terminal or an installed agent. It provisions a separate system Python/venv for the actual workspace; the frozen setup interpreter is not used as a long-lived runtime.
 
 **Check & review plan** shows two separate status rows: **Desktop app** and **CLI**. Desktop mode requires the app and marks the CLI optional; CLI mode requires the terminal command and marks the app optional. On macOS, both `Codex.app` and `ChatGPT.app` are recognized for Codex. If the app is installed in another location, use **Custom desktop app**. Changing the agent, interface or custom app clears the previous status until rechecked. Detection confirms the app's presence, not sign-in or feature access.
 

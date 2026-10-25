@@ -8,7 +8,7 @@
 
 Turn Codex or Claude Code into a job-search assistant that knows your experience, prepares tailored CVs and helps you apply across different sites. Keep applications and replies in one private workspace, so you can pick up where you left off.
 
-[Explore the website](https://blehmaks.github.io/find-me-a-job/) · [Quick start](#quick-start-without-installers) · [Have me run it for you](#want-me-to-run-your-search)
+[Explore the website](https://blehmaks.github.io/find-me-a-job/) · [Quick start](#start-with-the-desktop-installer-recommended) · [Have me run it for you](#want-me-to-run-your-search)
 
 ## What it does
 
@@ -32,7 +32,30 @@ The search led to **around 25 first-round interviews and an offer for an AI Solu
 - **A separate private folder** for your documents and applications. Keep personal data outside this repository.
 - Browser and mailbox access for submitting applications and following up. Your agent's available integrations determine which steps it can perform.
 
+## Start with the desktop installer (recommended)
+
+### 1. Download and open the setup app
+
+| Platform | Download | Open it |
+| --- | --- | --- |
+| macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
+| Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe) | Launch the EXE. |
+
+These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. To skip the setup app, use the source instructions below. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
+
+### 2. Choose your agent and folders
+
+The app bundles Python and its interface. Choose **Codex** or **Claude**, keep **desktop**, and select separate source and private-workspace folders. Review the setup plan, then let the wizard prepare the tools you approve.
+
+### 3. Open the project and start talking
+
+When checks pass, use **Copy first message**. Open the displayed source folder in your agent, paste the message and grant access to the private folder. Start with your experience, then agree on the roles and locations for your search.
+
+Account, quota, browser and mailbox access are checked separately. See the [support matrix](docs/support-matrix.md) for tested platforms and limitations.
+
 ## Quick start without installers
+
+If you prefer to skip the setup app, use the source directly. This is also the route for Linux.
 
 ### 1. Get the source
 
@@ -82,17 +105,6 @@ sh install/install.sh --interface cli --agent codex \
 Use `claude` instead of `codex` for Claude Code. The CLI must already be installed and authenticated. For desktop use, select `--interface desktop` / `-Interface desktop` and open the source folder in your app. See the guide for dependency installation, offline use and resuming setup.
 
 </details>
-
-## Optional desktop setup app
-
-| Platform | Download | Open it |
-| --- | --- | --- |
-| macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
-| Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe) | Launch the EXE. |
-
-These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. You can use the source route above. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
-
-The app bundles Python and its interface. Choose your agent and separate source/private folders, review the plan, then start setup. When checks pass, use **Copy first message** and open the displayed source folder in your agent. Account, quota, browser and mailbox access are checked separately. See the [support matrix](docs/support-matrix.md) for tested platforms and limitations.
 
 ## Want me to run your search?
 
