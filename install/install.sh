@@ -104,7 +104,17 @@ fi
 [ "$MODE" != managed ] || [ -n "$OPERATOR" ] || fail 'Managed mode requires --operator'
 PATH="$HOME/.local/bin:$PATH"
 export PATH
+NEED_BREW=0
 if [ "$DEPS" -eq 1 ] && [ "$PLATFORM" = Darwin ]; then
+    PATH="/Library/TeX/texbin:$PATH"
+    for tool in git pdftoppm xelatex; do
+        command -v "$tool" >/dev/null 2>&1 || NEED_BREW=1
+    done
+    if ! command -v "$PYTHON" >/dev/null 2>&1 || ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1; then NEED_BREW=1; fi
+    if [ "$FEEDBACK" = enabled ] && ! command -v gh >/dev/null 2>&1; then NEED_BREW=1; fi
+    if [ "$INTERFACE" = desktop ] && ! find_desktop; then NEED_BREW=1; fi
+fi
+if [ "$NEED_BREW" -eq 1 ]; then
     if ! command -v brew >/dev/null 2>&1; then
         for brew_prefix in /opt/homebrew /usr/local; do
             if [ -x "$brew_prefix/bin/brew" ]; then PATH="$brew_prefix/bin:$PATH"; break; fi
@@ -124,7 +134,6 @@ if [ "$DEPS" -eq 1 ] && [ "$PLATFORM" = Darwin ]; then
     fi
     command -v brew >/dev/null 2>&1 || fail 'Homebrew installation did not complete; check its output and retry.'
     eval "$(brew shellenv)"
-    PATH="/Library/TeX/texbin:$PATH"
     export PATH
     if ! command -v "$PYTHON" >/dev/null 2>&1 || ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1; then
         printf '%s\n' 'Installing official Homebrew Python formula.'

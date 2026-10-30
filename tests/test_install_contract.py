@@ -251,6 +251,20 @@ else:
         self.assertEqual(calls, [['shellenv'], ['install', 'git'], ['install', 'poppler'], ['install', '--cask', 'basictex']])
         self.assertTrue((self.workspace / 'workspace.json').is_file())
 
+    def test_ready_macos_source_setup_does_not_call_package_managers(self):
+        (self.bin / 'uname').unlink()
+        (self.bin / 'uname').write_text('#!/bin/sh\nprintf Darwin\n')
+        (self.bin / 'uname').chmod(0o700)
+        marker = self.base / 'unexpected-package-operation'
+        for name in ('git', 'xelatex', 'pdftoppm', 'brew', 'curl'):
+            path = self.bin / name
+            command = 'printf called > ' + shlex.quote(str(marker)) if name in ('brew', 'curl') else 'exit 0'
+            path.write_text('#!/bin/sh\n' + command + '\n'); path.chmod(0o700)
+        result = self.run_installer('--yes', '--install-dependencies', '--workspace', str(self.workspace),
+                                    '--agent', 'codex', '--python', str(self.python))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(marker.exists())
+
     def test_clone_launcher_plan_collision_and_network_failure(self):
         script = ROOT / 'install/clone.sh'
         def run(*args):
@@ -274,6 +288,25 @@ else:
 
 
 class PowerShellInstallContract(unittest.TestCase):
+    def test_windows_python_validation_and_alias_order(self):
+        source = (ROOT / 'install/install.ps1').read_text()
+        refresh = source.split('function Refresh-Path {', 1)[1].split('function Find-Python', 1)[0]
+        self.assertIn("$_.TrimEnd('\\') -ine $Aliases.TrimEnd('\\')", refresh)
+        self.assertIn('$RealPaths;', refresh)
+        self.assertIn(';$Aliases"', refresh)
+        finder = source.split('function Find-Python {', 1)[1].split('function Ensure-WinGet', 1)[0]
+        self.assertIn('Get-Command $Python -All -CommandType Application', finder)
+        self.assertIn('Programs\\Python\\Python3*\\python.exe', finder)
+        self.assertIn('WindowsApps\\*', finder)
+        self.assertIn('import sys,venv', finder)
+        self.assertIn('sys.version_info >= (3,11)', finder)
+        self.assertIn('$LASTEXITCODE -eq 0', finder)
+        install = source.split('$UsablePython = Find-Python', 1)[1].split('$PathCheck =', 1)[0]
+        self.assertLess(install.index('if (-not $InstallDependencies)'), install.index('Ensure-WinGet'))
+        self.assertLess(install.index('Refresh-Path'), install.index('$UsablePython = Find-Python'))
+        self.assertIn('Python 3.11+ with venv is still unavailable', install)
+        self.assertIn('$Python = $UsablePython', install)
+
     def test_windows_dependency_recipes_and_guarded_winget_bootstrap(self):
         source = (ROOT / 'install/install.ps1').read_text()
         bootstrap = source.split('function Ensure-WinGet {', 1)[1].split('function Find-Desktop', 1)[0]

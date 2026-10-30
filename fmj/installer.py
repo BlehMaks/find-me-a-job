@@ -266,7 +266,7 @@ def ensure_tools(options, runner):
     missing_agent = (not (options.desktop_app or tools.get('desktop_apps', {}).get(options.agent))
                      if options.interface == 'desktop' else not tools.get(options.agent))
     if (options.dependencies and platform.system() == 'Darwin' and not tools['brew']
-            and (any(not tools.get(name) for name in recipes) or missing_agent)):
+            and (any(not tools.get(name) for name in recipes) or (options.interface == 'desktop' and missing_agent))):
         install_homebrew(runner)
         tools = probe(runner)
         if not tools['brew']:

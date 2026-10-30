@@ -135,6 +135,15 @@ class InstallerTests(unittest.TestCase):
             install.assert_called_once_with(runner)
         runner.run.assert_not_called()
 
+    def test_macos_cli_only_does_not_need_homebrew(self):
+        tools = dict.fromkeys(('git', 'gh', 'python', 'pdftoppm', 'xelatex'), 'installed')
+        tools.update(brew=None, codex=None)
+        options = Options(self.options.source, self.options.workspace, interface='cli', dependencies=True)
+        with patch('fmj.installer.platform.system', return_value='Darwin'), \
+                patch('fmj.installer.probe', return_value=tools), patch('fmj.installer.install_homebrew') as install:
+            self.assertEqual(ensure_tools(options, Runner()), tools)
+            install.assert_not_called()
+
     def test_windows_bootstraps_winget_and_rechecks_each_package(self):
         recipes = [('git', 'Git.Git'), ('gh', 'GitHub.cli'), ('python', 'Python.Python.3.12'),
                    ('pdftoppm', 'oschwartz10612.Poppler'), ('xelatex', 'MiKTeX.MiKTeX')]

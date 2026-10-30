@@ -24,7 +24,23 @@ function Invoke-Checked([string]$Command, [string[]]$Arguments) {
     if ($LASTEXITCODE -ne 0) { throw "Command failed: $Command (exit $LASTEXITCODE). Correct the reported blocker and rerun." }
 }
 function Refresh-Path {
-    $env:PATH = "$env:USERPROFILE\.local\bin;$env:LOCALAPPDATA\Microsoft\WindowsApps;$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64;$env:ProgramFiles\MiKTeX\miktex\bin\x64;" + [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:PATH
+    $Aliases = "$env:LOCALAPPDATA\Microsoft\WindowsApps"
+    $Registered = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:PATH
+    $RealPaths = ($Registered -split ';' | Where-Object { $_ -and $_.TrimEnd('\') -ine $Aliases.TrimEnd('\') }) -join ';'
+    $env:PATH = "$RealPaths;$env:USERPROFILE\.local\bin;$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64;$env:ProgramFiles\MiKTeX\miktex\bin\x64;$Aliases"
+}
+function Find-Python {
+    $Candidates = @(Get-Command $Python -All -CommandType Application -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source)
+    $Candidates += @(Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe", "$env:ProgramFiles\Python3*\python.exe" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName)
+    foreach ($Candidate in $Candidates) {
+        # Store execution aliases may open an installer instead of running Python.
+        if ($Candidate -like "$env:LOCALAPPDATA\Microsoft\WindowsApps\*") { continue }
+        try {
+            $Executable = & $Candidate -c 'import sys,venv; print(sys.executable); sys.exit(0 if sys.version_info >= (3,11) else 1)' 2>$null
+            if ($LASTEXITCODE -eq 0) { return ($Executable | Select-Object -Last 1) }
+        } catch { continue }
+    }
+    return $null
 }
 function Ensure-WinGet {
     if (Get-Command winget -ErrorAction SilentlyContinue) { return }
@@ -92,7 +108,8 @@ if (-not $Yes) {
 }
 if (-not $Workspace -or -not $Agent) { throw '-Yes requires -Workspace and -Agent.' }
 if ($Mode -eq 'managed' -and -not $Operator) { throw 'Managed mode requires -Operator.' }
-if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) {
+$UsablePython = Find-Python
+if (-not $UsablePython) {
     if (-not $InstallDependencies) {
         throw 'Install Python 3.11+ from https://www.python.org/downloads/windows/ and select it with -Python; then rerun.'
     }
@@ -100,9 +117,10 @@ if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) {
     Write-Output 'Installing official Python through WinGet; review its package prompts.'
     Invoke-Checked 'winget' @('install','--exact','--id','Python.Python.3.12','--source','winget','--interactive')
     Refresh-Path
-    if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) { throw 'Open a new PowerShell after Python installation and rerun.' }
+    $UsablePython = Find-Python
+    if (-not $UsablePython) { throw 'Python 3.11+ with venv is still unavailable. Check the Python installer output or select a working interpreter with -Python.' }
 }
-Invoke-Checked $Python @('-c','import sys; assert sys.version_info >= (3,11), "Python 3.11+ required"')
+$Python = $UsablePython
 $PathCheck = @'
 from pathlib import Path
 import json, sys
