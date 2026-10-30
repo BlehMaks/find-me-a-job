@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
@@ -133,6 +134,86 @@ class InstallerTests(unittest.TestCase):
                 ensure_tools(options, runner)
             install.assert_called_once_with(runner)
         runner.run.assert_not_called()
+
+    def test_windows_bootstraps_winget_and_rechecks_each_package(self):
+        recipes = [('git', 'Git.Git'), ('gh', 'GitHub.cli'), ('python', 'Python.Python.3.12'),
+                   ('pdftoppm', 'oschwartz10612.Poppler'), ('xelatex', 'MiKTeX.MiKTeX')]
+        state = dict.fromkeys([name for name, _ in recipes] + ['winget'])
+        state['desktop_apps'] = {'codex': 'installed'}
+        probes = [dict(state)]
+        state['winget'] = 'winget.exe'
+        probes.append(dict(state))
+        for name, _ in recipes:
+            state[name] = name + '.exe'
+            probes.append(dict(state))
+        runner = Mock(spec=Runner())
+        options = Options(self.options.source, self.options.workspace, dependencies=True)
+        with patch('fmj.installer.platform.system', return_value='Windows'), \
+                patch('fmj.installer.probe', side_effect=probes) as inspect:
+            self.assertEqual(ensure_tools(options, runner), state)
+        self.assertEqual(inspect.call_count, len(recipes) + 2)
+        commands = [call.args[0] for call in runner.run.call_args_list]
+        self.assertEqual(commands[0][:5], ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command'])
+        self.assertIn('Install-PackageProvider -Name NuGet -Force -Scope CurrentUser', commands[0][-1])
+        self.assertIn('Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser', commands[0][-1])
+        self.assertIn('Import-Module Microsoft.WinGet.Client; Repair-WinGetPackageManager -Force -Latest', commands[0][-1])
+        self.assertNotIn('Set-ExecutionPolicy', commands[0][-1])
+        self.assertEqual(commands[1:], [
+            ['winget.exe', 'install', '--exact', '--id', package, '--source', 'winget', '--interactive',
+             '--accept-source-agreements', '--accept-package-agreements'] for _, package in recipes])
+
+    def test_windows_bootstrap_consent_reuse_and_failed_rechecks(self):
+        ready = dict.fromkeys(('git', 'gh', 'python', 'pdftoppm', 'xelatex'), 'installed')
+        ready.update(winget=None, codex='installed', desktop_apps={'codex': 'installed'})
+        runner = Mock(spec=Runner())
+        options = Options(self.options.source, self.options.workspace, dependencies=True)
+        with patch('fmj.installer.platform.system', return_value='Windows'), \
+                patch('fmj.installer.probe', return_value=ready):
+            self.assertEqual(ensure_tools(options, runner), ready)
+            runner.run.assert_not_called()
+            ready['git'] = None
+            with self.assertRaisesRegex(Handoff, 'Allow missing-software'):
+                ensure_tools(self.options, runner)
+            runner.run.assert_not_called()
+            with self.assertRaisesRegex(Handoff, 'WinGet is still unavailable'):
+                ensure_tools(options, runner)
+            self.assertEqual(runner.run.call_count, 1)
+            runner.reset_mock()
+            ready['winget'] = 'existing-winget'
+            with self.assertRaisesRegex(Handoff, 'git is still not available'):
+                ensure_tools(options, runner)
+            self.assertEqual(runner.run.call_count, 1)
+            self.assertEqual(runner.run.call_args.args[0][0], 'existing-winget')
+
+    def test_windows_missing_selected_agent_bootstraps_only_with_consent(self):
+        tools = dict.fromkeys(('git', 'gh', 'python', 'pdftoppm', 'xelatex'), 'installed')
+        tools.update(winget=None, codex=None, desktop_apps={'codex': None})
+        for interface in ('desktop', 'cli'):
+            for consent in (False, True):
+                runner = Mock(spec=Runner())
+                options = Options(self.options.source, self.options.workspace, interface=interface, dependencies=consent)
+                ready = dict(tools, winget='winget.exe')
+                needs_winget = consent and interface == 'desktop'
+                with self.subTest(interface=interface, consent=consent), \
+                        patch('fmj.installer.platform.system', return_value='Windows'), \
+                        patch('fmj.installer.probe', side_effect=[tools, ready]):
+                    self.assertEqual(ensure_tools(options, runner), ready if needs_winget else tools)
+                self.assertEqual(runner.run.call_count, int(needs_winget))
+
+    def test_windows_environment_finds_new_user_tools_without_restart(self):
+        registry = Mock()
+        registry.OpenKey.side_effect = OSError('no registry PATH')
+        local = self.base / 'Local'
+        env = {'LOCALAPPDATA': str(local), 'PROGRAMFILES': str(self.base / 'Programs'), 'PATH': 'existing'}
+        with patch.dict(os.environ, env, clear=True), patch.dict(sys.modules, winreg=registry), \
+                patch('fmj.installer.os', SimpleNamespace(environ=os.environ, name='nt', path=os.path, pathsep=';')), \
+                patch('fmj.installer.Path.home', return_value=self.base):
+            result = external_environment()
+        paths = result['PATH'].split(';')
+        for directory in (self.base / '.local/bin', local / 'Microsoft/WindowsApps',
+                          local / 'Microsoft/WinGet/Links', local / 'Programs/MiKTeX/miktex/bin/x64',
+                          self.base / 'Programs/MiKTeX/miktex/bin/x64'):
+            self.assertIn(str(directory), paths)
 
     def test_boundaries_and_existing_data_are_rejected_without_mutation(self):
         for source, private in ((self.base, self.base / 'nested'), (Path.home(), self.base / 'private'),

@@ -274,6 +274,30 @@ else:
 
 
 class PowerShellInstallContract(unittest.TestCase):
+    def test_windows_dependency_recipes_and_guarded_winget_bootstrap(self):
+        source = (ROOT / 'install/install.ps1').read_text()
+        bootstrap = source.split('function Ensure-WinGet {', 1)[1].split('function Find-Desktop', 1)[0]
+        self.assertLess(bootstrap.index('Get-Command winget'), bootstrap.index('Install-PackageProvider'))
+        self.assertLess(bootstrap.index('if (-not $InstallDependencies)'), bootstrap.index('Install-PackageProvider'))
+        self.assertIn('Install-PackageProvider -Name NuGet -Force -Scope CurrentUser', bootstrap)
+        self.assertIn('Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser', bootstrap)
+        self.assertIn('Import-Module Microsoft.WinGet.Client', bootstrap)
+        self.assertIn('Repair-WinGetPackageManager -Force -Latest', bootstrap)
+        self.assertLess(bootstrap.index('Repair-WinGetPackageManager'), bootstrap.index('Refresh-Path'))
+        self.assertIn('WinGet is still unavailable', bootstrap)
+        for recipe in ("@{ Command = 'git'; Id = 'Git.Git' }", "@{ Command = 'gh'; Id = 'GitHub.cli' }",
+                       "@{ Command = 'xelatex'; Id = 'MiKTeX.MiKTeX' }",
+                       "@{ Command = 'pdftoppm'; Id = 'oschwartz10612.Poppler' }"):
+            self.assertIn(recipe, source)
+        self.assertIn("'--id','Python.Python.3.12','--source','winget'", source)
+        self.assertIn("'--accept-source-agreements','--accept-package-agreements'", source)
+        self.assertIn('Get-Command $Package.Command', source)
+        self.assertIn('Complete its native installer and rerun', source)
+        self.assertIn('$env:LOCALAPPDATA\\Microsoft\\WindowsApps', source)
+        self.assertIn('$env:USERPROFILE\\.local\\bin', source)
+        self.assertNotIn('Set-PSRepository', source)
+        self.assertNotIn('-Scope AllUsers', source)
+
     def test_powershell_safety_and_cli_contract(self):
         source = (ROOT / "install/install.ps1").read_text()
         self.assertIn("if ($DryRun) { exit 0 }", source)

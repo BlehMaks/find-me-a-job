@@ -1,4 +1,4 @@
-# Review first. No profile, agent settings or execution-policy changes are made.
+# Review first. No profile, agent settings or persistent execution-policy changes are made.
 [CmdletBinding()]
 param(
     [string]$Workspace = '',
@@ -19,11 +19,23 @@ param(
 $ErrorActionPreference = 'Stop'
 $Source = Split-Path -Parent $PSScriptRoot
 function Invoke-Checked([string]$Command, [string[]]$Arguments) {
+    if ($Command -eq 'winget') { $Arguments += @('--accept-source-agreements','--accept-package-agreements') }
     & $Command @Arguments
     if ($LASTEXITCODE -ne 0) { throw "Command failed: $Command (exit $LASTEXITCODE). Correct the reported blocker and rerun." }
 }
 function Refresh-Path {
-    $env:PATH = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:PATH
+    $env:PATH = "$env:USERPROFILE\.local\bin;$env:LOCALAPPDATA\Microsoft\WindowsApps;$env:LOCALAPPDATA\Microsoft\WinGet\Links;$env:LOCALAPPDATA\Programs\MiKTeX\miktex\bin\x64;$env:ProgramFiles\MiKTeX\miktex\bin\x64;" + [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User') + ';' + $env:PATH
+}
+function Ensure-WinGet {
+    if (Get-Command winget -ErrorAction SilentlyContinue) { return }
+    if (-not $InstallDependencies) { throw 'Missing WinGet. Allow dependency installation or install Microsoft App Installer, then rerun.' }
+    Write-Output 'Installing WinGet through the official Microsoft PowerShell module.'
+    Install-PackageProvider -Name NuGet -Force -Scope CurrentUser | Out-Null
+    Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser
+    Import-Module Microsoft.WinGet.Client
+    Repair-WinGetPackageManager -Force -Latest
+    Refresh-Path
+    if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw 'WinGet is still unavailable. Check the Microsoft installer output and rerun.' }
 }
 function Find-Desktop {
     if ($DesktopApp) {
@@ -53,6 +65,7 @@ Write-Output 'Account/login/plan/quota: unknown. Confirm in the app; installatio
 Write-Output 'For sustained campaigns choose a paid agent plan or explicitly budgeted API access. Free allowances are not a reliable campaign budget; paid plans also have limits.'
 Write-Output 'Native Windows and WSL are separate targets. Existing configuration is preserved.'
 if ($DryRun) { exit 0 }
+Refresh-Path
 if ($Check) {
     $Missing = $false
     foreach ($Tool in @($Python,'git','xelatex','pdftoppm')) {
@@ -80,11 +93,12 @@ if (-not $Yes) {
 if (-not $Workspace -or -not $Agent) { throw '-Yes requires -Workspace and -Agent.' }
 if ($Mode -eq 'managed' -and -not $Operator) { throw 'Managed mode requires -Operator.' }
 if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) {
-    if (-not $InstallDependencies -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    if (-not $InstallDependencies) {
         throw 'Install Python 3.11+ from https://www.python.org/downloads/windows/ and select it with -Python; then rerun.'
     }
+    Ensure-WinGet
     Write-Output 'Installing official Python through WinGet; review its package prompts.'
-    Invoke-Checked 'winget' @('install','--exact','--id','Python.Python.3.12','--interactive')
+    Invoke-Checked 'winget' @('install','--exact','--id','Python.Python.3.12','--source','winget','--interactive')
     Refresh-Path
     if (-not (Get-Command $Python -ErrorAction SilentlyContinue)) { throw 'Open a new PowerShell after Python installation and rerun.' }
 }
@@ -116,12 +130,16 @@ if (Test-Path $ExistingConfiguration) {
     if ($ConfiguredAgent -ne $Agent) { throw 'Requested agent differs from existing workspace configuration; rerun with its configured agent or choose a separate workspace.' }
 }
 if ($InstallDependencies) {
-    $Packages = @(@{ Command = 'git'; Id = 'Git.Git' })
+    $Packages = @(@{ Command = 'git'; Id = 'Git.Git' },
+                  @{ Command = 'xelatex'; Id = 'MiKTeX.MiKTeX' },
+                  @{ Command = 'pdftoppm'; Id = 'oschwartz10612.Poppler' })
     if ($Feedback -eq 'enabled') { $Packages += @{ Command = 'gh'; Id = 'GitHub.cli' } }
     foreach ($Package in $Packages) {
         if (-not (Get-Command $Package.Command -ErrorAction SilentlyContinue)) {
-            if (-not (Get-Command winget -ErrorAction SilentlyContinue)) { throw "Install $($Package.Command) from its official source and rerun." }
-            Invoke-Checked 'winget' @('install','--exact','--id',$Package.Id,'--interactive')
+            Ensure-WinGet
+            Invoke-Checked 'winget' @('install','--exact','--id',$Package.Id,'--source','winget','--interactive')
+            Refresh-Path
+            if (-not (Get-Command $Package.Command -ErrorAction SilentlyContinue)) { throw "$($Package.Command) is still unavailable. Complete its native installer and rerun." }
         }
     }
     Refresh-Path
@@ -130,14 +148,16 @@ $Temporary = $null
 try {
     if ($Interface -eq 'desktop' -and -not (Find-Desktop)) {
         $AppUrl = if ($Agent -eq 'codex') { 'https://learn.chatgpt.com/docs/windows/windows-app' } else { 'https://code.claude.com/docs/en/desktop-quickstart' }
-        if (-not $InstallDependencies -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+        if (-not $InstallDependencies) {
             throw "Desktop application not detected. Install from $AppUrl and rerun, or use -InstallDependencies with WinGet. CLI is separate: -Interface cli."
         }
+        Ensure-WinGet
         if ($Agent -eq 'codex') {
             Invoke-Checked 'winget' @('install','--exact','--id','9PLM9XGG6VKS','--source','msstore','--interactive')
         } else {
             Invoke-Checked 'winget' @('install','--exact','--id','Anthropic.Claude','--source','winget','--interactive')
         }
+        Refresh-Path
         if (-not (Find-Desktop)) { throw "App installation not detected. Open the official app, or supply -DesktopApp, then rerun: $AppUrl" }
     }
     if ($Interface -eq 'cli' -and -not (Get-Command $Agent -ErrorAction SilentlyContinue)) {
@@ -174,10 +194,10 @@ try {
     if ($Interface -eq 'cli') { Write-Output "Next: & '$EnvPython' -m fmj run --workspace '$Workspace'" }
     Write-Output 'Sign in yourself. Review Windows ACLs, scoped permissions and browser/upload/mail capabilities.'
     if (-not (Get-Command xelatex -ErrorAction SilentlyContinue)) {
-        Write-Output 'TeX handoff: install official TeX Live from https://tug.org/texlive/windows.html and rerun doctor.'
+        Write-Output 'TeX handoff: rerun with -InstallDependencies for MiKTeX, or install official TeX Live from https://tug.org/texlive/windows.html.'
     }
     if (-not (Get-Command pdftoppm -ErrorAction SilentlyContinue)) {
-        Write-Output 'PDF renderer handoff: choose a reviewed Windows Poppler distribution; no unreviewed binary is installed automatically.'
+        Write-Output 'PDF renderer handoff: rerun with -InstallDependencies for the oschwartz10612.Poppler WinGet package.'
     }
 } finally {
     if ($Temporary -and (Test-Path $Temporary)) { Remove-Item -LiteralPath $Temporary -Recurse -Force }

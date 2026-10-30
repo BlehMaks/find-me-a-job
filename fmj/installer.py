@@ -105,6 +105,9 @@ def external_environment():
         local = Path(os.environ.get('LOCALAPPDATA', Path.home()))
         extras.extend(str(p) for p in (local / 'Programs/Python').glob('Python3*'))
         extras.extend([str(local / 'Programs/MiKTeX/miktex/bin/x64'),
+                       str(local / 'Microsoft/WindowsApps'), str(local / 'Microsoft/WinGet/Links'),
+                       str(Path.home() / '.local/bin'),
+                       str(Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'MiKTeX/miktex/bin/x64'),
                        str(Path(os.environ.get('PROGRAMFILES', 'C:/Program Files')) / 'Git/cmd')])
     else:
         extras = ['/opt/homebrew/bin', '/opt/homebrew/opt/python@3.12/bin', '/usr/local/bin',
@@ -268,6 +271,17 @@ def ensure_tools(options, runner):
         tools = probe(runner)
         if not tools['brew']:
             raise Handoff('Homebrew is still unavailable. Check the installation output, then retry.')
+    if (options.dependencies and platform.system() == 'Windows' and not tools['winget']
+            and (any(not tools.get(name) for name in recipes) or (options.interface == 'desktop' and missing_agent))):
+        runner.emit('Installing WinGet through the official Microsoft PowerShell module…')
+        runner.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+                    "$ErrorActionPreference = 'Stop'; "
+                    'Install-PackageProvider -Name NuGet -Force -Scope CurrentUser | Out-Null; '
+                    'Install-Module -Name Microsoft.WinGet.Client -Force -Repository PSGallery -Scope CurrentUser; '
+                    'Import-Module Microsoft.WinGet.Client; Repair-WinGetPackageManager -Force -Latest'])
+        tools = probe(runner)
+        if not tools['winget']:
+            raise Handoff('WinGet is still unavailable. Check the Microsoft installer output, then retry.')
     for name, (formula, package) in recipes.items():
         if tools.get(name):
             continue
@@ -287,7 +301,8 @@ def ensure_tools(options, runner):
                 runner.run([tools['brew'], 'install', formula])
         elif system == 'Windows' and tools['winget']:
             runner.emit('Installing ' + name + ' through WinGet; complete its native prompts…')
-            runner.run([tools['winget'], 'install', '--exact', '--id', package, '--source', 'winget', '--interactive'])
+            runner.run([tools['winget'], 'install', '--exact', '--id', package, '--source', 'winget', '--interactive',
+                        '--accept-source-agreements', '--accept-package-agreements'])
         else:
             raise Handoff('Install missing system tools from the platform guide, then retry.', 'https://github.com/BlehMaks/find-me-a-job')
         tools = probe(runner)
@@ -356,7 +371,7 @@ def setup(options, runner):
         args = [switches.get(value, value) for value in args]
         if options.dependencies:
             args.append('-InstallDependencies')
-        command = ['powershell.exe', '-NoProfile', '-File', str(source / 'install/install.ps1'), *args]
+        command = ['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(source / 'install/install.ps1'), *args]
         python = environment / 'Scripts/python.exe'
     else:
         if options.interface == 'cli' and not tools.get(options.agent) and options.dependencies:

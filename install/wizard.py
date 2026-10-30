@@ -141,6 +141,7 @@ class Wizard:
                 '\n\nThe source will be cloned or reused without reset. Existing workspace data is preserved. '
                 'With missing-software installation allowed, macOS setup downloads and installs Homebrew and BasicTeX when needed; '
                 'other tools use Homebrew or WinGet (Windows), including community Poppler builds on Windows. '
+                'Approved Windows installs accept the package-source and software agreements. '
                 'On macOS, you may need to allow software and packages downloaded from the internet in System Settings > Privacy & Security '
                 'if permission has not already been granted. '
                 'Some system installations need your native confirmation. No subscription is purchased; no account is signed in automatically. '
