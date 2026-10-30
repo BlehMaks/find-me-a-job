@@ -7,9 +7,9 @@ import sys
 import tempfile
 import threading
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
-from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback, probe, agent_status
+from fmj.installer import Cancelled, Handoff, Options, ORIGIN, Runner, checkout, external_environment, github_login, configure_feedback, probe, agent_status, ensure_tools, install_homebrew, install_macos_package
 
 
 class InstallerTests(unittest.TestCase):
@@ -51,6 +51,88 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(agent_status(options, tools)[0], f'Desktop app (required): {custom}')
         custom.rmdir()
         self.assertIn('not detected automatically', agent_status(options, tools)[0])
+
+    def test_macos_git_stub_without_developer_tools_is_missing(self):
+        runner = Mock(spec=Runner())
+        runner.run.return_value = subprocess.CompletedProcess([], 1, '')
+        with patch('fmj.installer.platform.system', return_value='Darwin'), \
+                patch('fmj.installer.shutil.which', side_effect=lambda name, **kw: '/usr/bin/git' if name == 'git' else None), \
+                patch('fmj.installer.find_python', return_value=None):
+            self.assertIsNone(probe(runner)['git'])
+            runner.run.return_value = subprocess.CompletedProcess([], 0, '/Library/Developer/CommandLineTools')
+            self.assertEqual(probe(runner)['git'], '/usr/bin/git')
+
+    def test_macos_packages_use_native_authorization_after_trust_checks(self):
+        package = self.base / 'Basic TeX ü;$(touch unwanted).pkg'
+        runner = Mock(spec=Runner())
+        install_macos_package(package, runner)
+        calls = [call.args[0] for call in runner.run.call_args_list]
+        self.assertEqual(calls[0], ['/usr/sbin/pkgutil', '--check-signature', str(package)])
+        self.assertEqual(calls[1], ['/usr/sbin/spctl', '--assess', '--type', 'install', str(package)])
+        self.assertEqual(calls[2][:2], ['/usr/bin/osascript', '-e'])
+        self.assertIn('quoted form of (item 1 of argv)', calls[2][2])
+        self.assertIn('with administrator privileges', calls[2][2])
+        self.assertEqual(calls[2][3:], [str(package)])
+        for failed_check in (0, 1):
+            runner.reset_mock()
+            runner.run.side_effect = [None] * failed_check + [Handoff('untrusted package')]
+            with self.assertRaises(Handoff):
+                install_macos_package(package, runner)
+            self.assertEqual(runner.run.call_count, failed_check + 1)
+
+    def test_homebrew_download_and_temporary_cleanup_on_cancel(self):
+        runner = Mock(spec=Runner())
+        with patch('fmj.installer.platform.machine', return_value='arm64'), \
+                patch('fmj.installer.install_macos_package', side_effect=Cancelled('stopped')) as install:
+            with self.assertRaises(Cancelled):
+                install_homebrew(runner)
+        argv = runner.run.call_args.args[0]
+        self.assertEqual(argv[-1], 'https://github.com/Homebrew/brew/releases/latest/download/Homebrew.pkg')
+        self.assertIn('--fail', argv)
+        self.assertIn('=https', argv)
+        package = install.call_args.args[0]
+        self.assertEqual(str(package), argv[argv.index('--output') + 1])
+        self.assertFalse(package.parent.exists())
+
+    def test_missing_macos_tools_install_in_order_and_reprobe(self):
+        package = self.base / 'basictex.pkg'
+        package.touch()
+        missing = dict.fromkeys(('git', 'gh', 'python', 'pdftoppm', 'xelatex'), 'installed')
+        missing.update(brew=None, xelatex=None, python=None, codex='installed')
+        brew = dict(missing, brew='/opt/homebrew/bin/brew')
+        python = dict(brew, python='python3.12')
+        ready = dict(python, xelatex='/Library/TeX/texbin/xelatex')
+        runner = Mock(spec=Runner())
+        runner.run.return_value = subprocess.CompletedProcess([], 0, str(package))
+        options = Options(self.options.source, self.options.workspace, dependencies=True)
+        with patch('fmj.installer.platform.system', return_value='Darwin'), \
+                patch('fmj.installer.probe', side_effect=[missing, brew, python, ready]), \
+                patch('fmj.installer.install_homebrew') as bootstrap, \
+                patch('fmj.installer.install_macos_package') as install:
+            self.assertEqual(ensure_tools(options, runner), ready)
+        bootstrap.assert_called_once_with(runner)
+        install.assert_called_once_with(package, runner)
+        self.assertEqual([c.args[0] for c in runner.run.call_args_list], [
+            [brew['brew'], 'install', 'python@3.12'], [brew['brew'], 'fetch', '--cask', 'basictex'],
+            [brew['brew'], '--cache', '--cask', 'basictex']])
+
+    def test_macos_dependency_consent_reuse_and_failed_recheck(self):
+        tools = dict.fromkeys(('git', 'gh', 'python', 'pdftoppm', 'xelatex'), 'installed')
+        tools.update(brew=None, codex='installed', desktop_apps={'codex': 'installed'})
+        runner = Mock(spec=Runner())
+        options = Options(self.options.source, self.options.workspace, dependencies=True)
+        with patch('fmj.installer.platform.system', return_value='Darwin'), \
+                patch('fmj.installer.probe', return_value=tools), patch('fmj.installer.install_homebrew') as install:
+            self.assertEqual(ensure_tools(options, runner), tools)
+            install.assert_not_called()
+            tools['xelatex'] = None
+            with self.assertRaisesRegex(Handoff, 'Allow missing-software'):
+                ensure_tools(self.options, runner)
+            install.assert_not_called()
+            with self.assertRaisesRegex(Handoff, 'Homebrew is still unavailable'):
+                ensure_tools(options, runner)
+            install.assert_called_once_with(runner)
+        runner.run.assert_not_called()
 
     def test_boundaries_and_existing_data_are_rejected_without_mutation(self):
         for source, private in ((self.base, self.base / 'nested'), (Path.home(), self.base / 'private'),

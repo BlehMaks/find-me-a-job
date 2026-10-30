@@ -45,7 +45,7 @@ class Wizard:
         self.source = tk.StringVar(value=str(Path.home() / 'FindMeAJob/source'))
         self.workspace = tk.StringVar(value=str(Path.home() / 'FindMeAJob/private'))
         self.desktop = tk.StringVar()
-        self.dependencies = tk.BooleanVar(value=False)
+        self.dependencies = tk.BooleanVar(value=sys.platform == 'darwin')
         self.controls = []
         for row, (label, variable, choices) in enumerate((('Agent', self.agent, ('codex', 'claude')),
                                                        ('Interface', self.interface, ('desktop', 'cli')),
@@ -139,7 +139,10 @@ class Wizard:
         return ('Source: ' + self.source.get() + '\nPrivate workspace: ' + self.workspace.get() +
                 '\nAgent: ' + self.agent.get() + ' / ' + self.interface.get() + '\nFeedback: ' + self.feedback.get() +
                 '\n\nThe source will be cloned or reused without reset. Existing workspace data is preserved. '
-                'Missing tools may use Homebrew (macOS) or WinGet (Windows), including community Poppler builds on Windows. '
+                'With missing-software installation allowed, macOS setup downloads and installs Homebrew and BasicTeX when needed; '
+                'other tools use Homebrew or WinGet (Windows), including community Poppler builds on Windows. '
+                'On macOS, you may need to allow software and packages downloaded from the internet in System Settings > Privacy & Security '
+                'if permission has not already been granted. '
                 'Some system installations need your native confirmation. No subscription is purchased; no account is signed in automatically. '
                 'With enabled feedback, missing local Git identity uses your GitHub login and noreply address; global settings are preserved. '
                 'Sign-in and feedback are separate choices. Stop prevents later steps; it does not undo native installations.')

@@ -43,6 +43,8 @@ The search led to **around 25 first-round interviews and an offer for an AI Solu
 
 These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. To skip the setup app, use the source instructions below. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
 
+On macOS, you may need to allow apps and packages downloaded from the internet in **System Settings → Privacy & Security** if permission has not already been granted. Approve only the app or package you intended to install; keep system protections enabled.
+
 ### 2. Choose your agent and folders
 
 The app bundles Python and its interface. Choose **Codex** or **Claude**, keep **desktop**, and select separate source and private-workspace folders. Review the setup plan, then let the wizard prepare the tools you approve.

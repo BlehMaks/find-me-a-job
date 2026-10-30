@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import threading
+import tempfile
 
 ORIGIN = 'https://github.com/BlehMaks/find-me-a-job.git'
 UPSTREAM = 'BlehMaks/find-me-a-job'
@@ -214,6 +215,9 @@ def detect_desktop(agent):
 def probe(runner):
     env = external_environment()
     tools = {name: shutil.which(name, path=env['PATH']) for name in ('git', 'gh', 'brew', 'winget', 'xelatex', 'pdftoppm', 'codex', 'claude')}
+    if platform.system() == 'Darwin' and tools['git'] == '/usr/bin/git':
+        if runner.run(['/usr/bin/xcode-select', '-p'], check=False, timeout=15).returncode:
+            tools['git'] = None  # The system Git stub needs developer tools; use Homebrew Git instead.
     tools['python'] = find_python(runner)
     tools['desktop_apps'] = {agent: detect_desktop(agent) or None for agent in ('codex', 'claude')}
     return tools
@@ -229,11 +233,41 @@ def agent_status(options, tools):
     )
 
 
+def install_macos_package(package, runner):
+    # Keep authorization in macOS; never collect passwords or run Homebrew as root.
+    runner.run(['/usr/sbin/pkgutil', '--check-signature', str(package)])
+    runner.run(['/usr/sbin/spctl', '--assess', '--type', 'install', str(package)])
+    runner.emit('Approve the macOS installation prompt to continue…')
+    runner.run(['/usr/bin/osascript', '-e', '''on run argv
+do shell script "/usr/sbin/installer -pkg " & quoted form of (item 1 of argv) & " -target /" with administrator privileges
+end run''', str(package)])
+
+
+def install_homebrew(runner):
+    if platform.machine() != 'arm64':
+        raise Handoff('Automatic Homebrew package installation requires Apple Silicon. Use an Apple Silicon Mac or existing Homebrew.')
+    runner.emit('Downloading the official Homebrew package…')
+    with tempfile.TemporaryDirectory(prefix='fmj-homebrew-') as temporary:
+        package = Path(temporary) / 'Homebrew.pkg'
+        runner.run(['/usr/bin/curl', '--fail', '--location', '--show-error', '--connect-timeout', '30',
+                    '--max-time', '600', '--proto', '=https', '--proto-redir', '=https', '--output', str(package),
+                    'https://github.com/Homebrew/brew/releases/latest/download/Homebrew.pkg'])
+        install_macos_package(package, runner)
+
+
 def ensure_tools(options, runner):
     tools = probe(runner)
     recipes = {'git': ('git', 'Git.Git'), 'gh': ('gh', 'GitHub.cli'),
                'python': ('python@3.12', 'Python.Python.3.12'), 'pdftoppm': ('poppler', 'oschwartz10612.Poppler'),
                'xelatex': (None, 'MiKTeX.MiKTeX')}
+    missing_agent = (not (options.desktop_app or tools.get('desktop_apps', {}).get(options.agent))
+                     if options.interface == 'desktop' else not tools.get(options.agent))
+    if (options.dependencies and platform.system() == 'Darwin' and not tools['brew']
+            and (any(not tools.get(name) for name in recipes) or missing_agent)):
+        install_homebrew(runner)
+        tools = probe(runner)
+        if not tools['brew']:
+            raise Handoff('Homebrew is still unavailable. Check the installation output, then retry.')
     for name, (formula, package) in recipes.items():
         if tools.get(name):
             continue
@@ -241,12 +275,16 @@ def ensure_tools(options, runner):
             raise Handoff('Missing ' + name + '. Allow missing-software installation, or install it and recheck.')
         system = platform.system()
         if system == 'Darwin':
-            if not tools['brew']:
-                raise Handoff('Install Homebrew using its official installer, then return here and retry.', 'https://brew.sh/')
             if name == 'xelatex':
-                raise Handoff('Install BasicTeX using its native package installer, then retry. System authorization stays in that installer.', 'https://tug.org/mactex/morepackages.html')
-            runner.emit('Installing ' + name + ' through Homebrew…')
-            runner.run([tools['brew'], 'install', formula])
+                runner.emit('Downloading BasicTeX through Homebrew…')
+                runner.run([tools['brew'], 'fetch', '--cask', 'basictex'])
+                package = Path(runner.run([tools['brew'], '--cache', '--cask', 'basictex'], timeout=30).stdout.strip())
+                if not package.is_file() or package.suffix != '.pkg':
+                    raise Handoff('The downloaded BasicTeX package was not found. Check the output, then retry.')
+                install_macos_package(package, runner)
+            else:
+                runner.emit('Installing ' + name + ' through Homebrew…')
+                runner.run([tools['brew'], 'install', formula])
         elif system == 'Windows' and tools['winget']:
             runner.emit('Installing ' + name + ' through WinGet; complete its native prompts…')
             runner.run([tools['winget'], 'install', '--exact', '--id', package, '--source', 'winget', '--interactive'])
