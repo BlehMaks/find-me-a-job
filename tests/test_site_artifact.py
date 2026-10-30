@@ -69,7 +69,7 @@ class SiteArtifactTests(unittest.TestCase):
         for tag, attribute, value in self.page.reference_context:
             parsed = urlsplit(value)
             if parsed.scheme:
-                self.assertIn(value, {"https://github.com/BlehMaks/find-me-a-job", "https://learn.chatgpt.com/docs/app", "https://code.claude.com/docs/en/desktop-quickstart", "https://desktop.github.com/download/", "https://github.com/BlehMaks/find-me-a-job#quick-start-without-installers", "https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0", "https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg", "https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe", "mailto:" + "@".join(("findmeajobai", "gmail.com"))})
+                self.assertIn(value, {"https://github.com/BlehMaks/find-me-a-job", "https://learn.chatgpt.com/docs/app", "https://code.claude.com/docs/en/desktop-quickstart", "https://desktop.github.com/download/", "https://github.com/BlehMaks/find-me-a-job#quick-start-without-installers", "https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.1", "https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.1/FindMeAJob-Setup-0.1.1-macos-arm64.dmg", "https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.1/FindMeAJob-Setup-0.1.1-windows-x64.exe", "mailto:" + "@".join(("findmeajobai", "gmail.com"))})
                 self.assertEqual((tag, attribute), ("a", "href"))
                 continue
             self.assertFalse(parsed.scheme, "Site resources must be relative; no external tracking/font scripts")

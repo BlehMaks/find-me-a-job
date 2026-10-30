@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "find-me-a-job"
-version = "0.1.0"
+version = "0.1.1"
 description = "Local evidence-based career-agent workflows and private execution tools"
 license = "MIT"
 license-files = ["LICENSE"]

@@ -38,10 +38,10 @@ The search led to **around 25 first-round interviews and an offer for an AI Solu
 
 | Platform | Download | Open it |
 | --- | --- | --- |
-| macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
-| Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.0/FindMeAJob-Setup-0.1.0-windows-x64.exe) | Launch the EXE. |
+| macOS · Apple Silicon (arm64) | [macOS (.dmg)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.1/FindMeAJob-Setup-0.1.1-macos-arm64.dmg) | Open the DMG, drag **Find Me a Job Setup** into **Applications**, then open it there. |
+| Windows · x64 | [Windows (.exe)](https://github.com/BlehMaks/find-me-a-job/releases/download/v0.1.1/FindMeAJob-Setup-0.1.1-windows-x64.exe) | Launch the EXE. |
 
-These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. To skip the setup app, use the source instructions below. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) identify the published files; a checksum is not a publisher signature.
+These are **unsigned builds**; macOS builds are not notarized. Your OS may warn or block them. To skip the setup app, use the source instructions below. [Release notes and SHA-256 checksums](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.1) identify the published files; a checksum is not a publisher signature.
 
 On macOS, you may need to allow apps and packages downloaded from the internet in **System Settings → Privacy & Security** if permission has not already been granted. Approve only the app or package you intended to install; keep system protections enabled.
 
@@ -64,11 +64,11 @@ If you prefer to skip the setup app, use the source directly. This is also the r
 Clone the first release with Git:
 
 ```sh
-git clone --branch v0.1.0 https://github.com/BlehMaks/find-me-a-job.git
+git clone --branch v0.1.1 https://github.com/BlehMaks/find-me-a-job.git
 cd find-me-a-job
 ```
 
-Or download the **Source code (zip)** from [Releases](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.0) and extract it. No setup application is required.
+Or download the **Source code (zip)** from [Releases](https://github.com/BlehMaks/find-me-a-job/releases/tag/v0.1.1) and extract it. No setup application is required.
 
 ### 2. Open the folder in your agent
 
