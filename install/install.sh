@@ -102,9 +102,31 @@ if [ "$YES" -eq 0 ]; then
 fi
 [ -n "$WORKSPACE" ] && [ -n "$AGENT" ] || fail '--yes requires --workspace and --agent'
 [ "$MODE" != managed ] || [ -n "$OPERATOR" ] || fail 'Managed mode requires --operator'
+PATH="$HOME/.local/bin:$PATH"
+export PATH
 if [ "$DEPS" -eq 1 ] && [ "$PLATFORM" = Darwin ]; then
-    command -v brew >/dev/null 2>&1 || fail 'Install Homebrew yourself from https://brew.sh or supply existing dependencies; rerun.'
-    if ! command -v "$PYTHON" >/dev/null 2>&1; then
+    if ! command -v brew >/dev/null 2>&1; then
+        for brew_prefix in /opt/homebrew /usr/local; do
+            if [ -x "$brew_prefix/bin/brew" ]; then PATH="$brew_prefix/bin:$PATH"; break; fi
+        done
+    fi
+    if ! command -v brew >/dev/null 2>&1; then
+        printf '%s\n' 'Downloading and running the official Homebrew installer; approve its system prompts.'
+        TEMP_INSTALL=$(mktemp)
+        trap 'rm -f "$TEMP_INSTALL"' EXIT HUP INT TERM
+        curl -fLsS --proto '=https' --proto-redir '=https' https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh -o "$TEMP_INSTALL"
+        /bin/bash "$TEMP_INSTALL"
+        rm -f "$TEMP_INSTALL"
+        trap - EXIT HUP INT TERM
+        for brew_prefix in /opt/homebrew /usr/local; do
+            if [ -x "$brew_prefix/bin/brew" ]; then PATH="$brew_prefix/bin:$PATH"; break; fi
+        done
+    fi
+    command -v brew >/dev/null 2>&1 || fail 'Homebrew installation did not complete; check its output and retry.'
+    eval "$(brew shellenv)"
+    PATH="/Library/TeX/texbin:$PATH"
+    export PATH
+    if ! command -v "$PYTHON" >/dev/null 2>&1 || ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1; then
         printf '%s\n' 'Installing official Homebrew Python formula.'
         brew install python@3.12
         PYTHON="$(brew --prefix python@3.12)/bin/python3.12"

@@ -210,6 +210,47 @@ else:
                     self.assertIn('Account/login/plan/quota: unknown', result.stdout)
         self.assertFalse(self.workspace.exists())
 
+    def test_macos_dependencies_and_user_agent_work_without_terminal_restart(self):
+        tools = self.base / 'new brew tools'
+        texbin = self.base / 'new TeX tools'
+        tools.mkdir(); texbin.mkdir()
+        home = self.base / 'home'
+        agent = home / '.local/bin/codex'
+        agent.parent.mkdir(parents=True)
+        agent.write_text('#!/bin/sh\nexit 0\n'); agent.chmod(0o700)
+        (self.bin / 'codex').unlink()
+        (self.bin / 'uname').unlink()
+        (self.bin / 'uname').write_text('#!/bin/sh\nprintf Darwin\n')
+        (self.bin / 'uname').chmod(0o700)
+        script = self.source / 'install/install.sh'
+        script.write_text(script.read_text().replace('/Library/TeX/texbin', str(texbin)))
+        brew_trace = self.base / 'brew.jsonl'
+        brew_code = self.base / 'brew.py'
+        brew_code.write_text('''import json, os, pathlib, shlex, sys
+args = sys.argv[1:]
+with open(os.environ['BREW_TRACE'], 'a') as trace:
+    trace.write(json.dumps(args) + '\\n')
+tools = pathlib.Path(os.environ['BREW_TOOLS'])
+if args == ['shellenv']:
+    print('export PATH=' + shlex.quote(str(tools)) + ':"$PATH"')
+elif args[:1] == ['install']:
+    name = {'git':'git', 'poppler':'pdftoppm', 'basictex':'xelatex'}[args[-1]]
+    target = pathlib.Path(os.environ['TEX_BIN']) / name if name == 'xelatex' else tools / name
+    target.write_text('#!/bin/sh\\nexit 0\\n'); target.chmod(0o700)
+else:
+    raise SystemExit(9)
+''')
+        brew = self.bin / 'brew'
+        brew.write_text('#!/bin/sh\nexec ' + shlex.quote(sys.executable) + ' ' + shlex.quote(str(brew_code)) + ' "$@"\n')
+        brew.chmod(0o700)
+        self.env.update(HOME=str(home), BREW_TRACE=str(brew_trace), BREW_TOOLS=str(tools), TEX_BIN=str(texbin))
+        result = self.run_installer('--yes', '--install-dependencies', '--workspace', str(self.workspace),
+                                    '--agent', 'codex', '--python', str(self.python))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        calls = [json.loads(line) for line in brew_trace.read_text().splitlines()]
+        self.assertEqual(calls, [['shellenv'], ['install', 'git'], ['install', 'poppler'], ['install', '--cask', 'basictex']])
+        self.assertTrue((self.workspace / 'workspace.json').is_file())
+
     def test_clone_launcher_plan_collision_and_network_failure(self):
         script = ROOT / 'install/clone.sh'
         def run(*args):
